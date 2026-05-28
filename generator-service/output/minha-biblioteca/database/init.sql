@@ -1,0 +1,1 @@
+-- Auto-generated Database Schema\n\nCREATE TABLE IF NOT EXISTS catalogo_service_records (id SERIAL PRIMARY KEY, data JSONB);\nCREATE TABLE IF NOT EXISTS emprestimo_service_records (id SERIAL PRIMARY KEY, data JSONB);\nCREATE TABLE IF NOT EXISTS auth_service_records (id SERIAL PRIMARY KEY, data JSONB);\n

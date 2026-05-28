@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Generated Application</title>
+    <style>
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; margin: 40px; background-color: #f9fafb; color: #111827; }
+        h1 { color: #2563eb; }
+        .card { background: #ffffff; padding: 20px; border-radius: 8px; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1); margin-top: 20px; }
+        .docs-link { display: inline-block; margin-top: 15px; padding: 10px 15px; background: #2563eb; color: white; text-decoration: none; border-radius: 5px; }
+    </style>
+</head>
+<body>
+    <h1>Application Dashboard</h1>
+    <p>This frontend was dynamically generated based on your selections.</p>
+    
+    <div class="card">
+        <h2>Provisioned Microservices:</h2>
+        <ul><li>catalogo-service</li><li>emprestimo-service</li><li>auth-service</li></ul>
+        
+        <a href="http://localhost:8080/docs" target="_blank" class="docs-link">View API Gateway Documentation</a>
+    </div>
+
+    <script>
+        fetch('http://localhost:8080/')
+            .then(res => res.json())
+            .then(data => console.log("Gateway Status:", data))
+            .catch(err => console.error("Gateway is not reachable", err));
+    </script>
+</body>
+</html>
