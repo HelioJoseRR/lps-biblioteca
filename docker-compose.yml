@@ -1,0 +1,19 @@
+services:
+  selector-ui:
+    build:
+      context: ./selector-ui
+    ports:
+      - "5173:5173"
+    volumes:
+      - ./selector-ui:/app
+      - /app/node_modules
+    depends_on:
+      - generator-service
+
+  generator-service:
+    build:
+      context: ./generator-service
+    ports:
+      - "5000:5000"
+    volumes:
+      - ./generator-service:/app
