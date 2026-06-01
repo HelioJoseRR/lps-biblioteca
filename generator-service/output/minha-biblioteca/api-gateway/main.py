@@ -1,6 +1,6 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import RedirectResponse
+import httpx
 
 app = FastAPI(title="API Gateway", description="Ponto central de acesso aos microsserviços.", version="1.0.0")
 
@@ -11,17 +11,49 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+SERVICES = ["catalogo-service"]
 
-@app.api_route("/catalogo-service/{path:path}", methods=["GET", "POST", "PUT", "DELETE"])
-async def proxy_catalogo_service(path: str):
-    import httpx
-    async with httpx.AsyncClient() as client:
-        # Simplificacao: roteia para o container via docker network
-        url = f"http://catalogo-service:8000/{path}"
-        # No mundo real, repassariamos params e headers
-        return {"gateway": "Proxy to catalogo-service", "url": url}
-
+# Build a mapping of service-name -> internal docker URL
+SERVICE_MAP = {s: f"http://{s}:8000" for s in SERVICES}
 
 @app.get("/")
 def root():
-    return {"status": "Gateway Operacional", "servicos_disponiveis": ["catalogo-service"]}
+    return {"status": "Gateway Operacional", "servicos_disponiveis": SERVICES}
+
+@app.api_route("/{service}/{path:path}", methods=["GET", "POST", "PUT", "DELETE", "PATCH"])
+async def proxy(service: str, path: str, request: Request):
+    if service not in SERVICE_MAP:
+        return {"error": f"Serviço '{service}' não encontrado"}, 404
+
+    target_url = f"{SERVICE_MAP[service]}/{path}"
+
+    # Forward query params
+    if request.url.query:
+        target_url += f"?{request.url.query}"
+
+    # Read body for non-GET requests
+    body = await request.body()
+
+    # Forward headers (except host)
+    headers = dict(request.headers)
+    headers.pop("host", None)
+
+    async with httpx.AsyncClient(timeout=30.0) as client:
+        try:
+            response = await client.request(
+                method=request.method,
+                url=target_url,
+                content=body,
+                headers=headers,
+            )
+            return Response(
+                content=response.content,
+                status_code=response.status_code,
+                headers=dict(response.headers),
+            )
+        except httpx.ConnectError:
+            return Response(
+                content=f'{"error": "Serviço {service} indisponível"}',
+                status_code=503,
+                media_type="application/json",
+            )
