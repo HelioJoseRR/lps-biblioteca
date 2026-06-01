@@ -2,6 +2,32 @@ import { useState, useMemo } from 'react';
 import { features } from './features';
 import './App.css';
 
+/* ===== SVG Icons ===== */
+const CheckIcon = () => (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+    <polyline points="20 6 9 17 4 12"/>
+  </svg>
+);
+
+const LinkIcon = () => (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/>
+    <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>
+  </svg>
+);
+
+/* ===== Category Icons ===== */
+const categoryIcons = {
+  'Core': '🧩',
+  'Segurança': '🔐',
+  'Operacional': '📋',
+  'Financeiro': '💰',
+  'Comunicação': '📨',
+  'Exploração': '🔍',
+  'Social': '💬',
+  'Todas': '📦',
+};
+
 function App() {
   const [selectedFeatures, setSelectedFeatures] = useState(
     features.filter(f => f.mandatory).map(f => f.id)
@@ -11,7 +37,7 @@ function App() {
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState(null);
 
-  const categories = useMemo(() => 
+  const categories = useMemo(() =>
     ['Todas', ...new Set(features.map(f => f.category))],
   []);
 
@@ -55,23 +81,25 @@ function App() {
         }
 
         // Handle exclusions: if we select this, deselect conflicting ones
-        const conflicting = features.filter(f => 
+        const conflicting = features.filter(f =>
           toAdd.includes(f.id) && f.excludes.some(excl => prev.includes(excl))
         ).flatMap(f => f.excludes);
-        
+
         const newSelection = [...new Set([...prev, ...toAdd])].filter(fid => !conflicting.includes(fid));
         return newSelection;
       }
     });
   };
 
-  const filteredFeatures = useMemo(() => 
+  const filteredFeatures = useMemo(() =>
     activeCategory === 'Todas' ? features : features.filter(f => f.category === activeCategory)
   , [activeCategory]);
 
-  const selectedList = useMemo(() => 
+  const selectedList = useMemo(() =>
     features.filter(f => selectedFeatures.includes(f.id))
   , [selectedFeatures]);
+
+  const progressPercent = Math.round((selectedFeatures.length / features.length) * 100);
 
   const handleGenerate = async () => {
     if (projectName.trim() === '' || loading) return;
@@ -90,12 +118,12 @@ function App() {
 
       const data = await response.json();
       if (response.ok) {
-        setMessage({ type: 'success', text: `Sucesso! Aplicação gerada em output/.` });
+        setMessage({ type: 'success', text: `✓ Sucesso! Aplicação gerada em output/${projectName}/` });
       } else {
         setMessage({ type: 'error', text: data.error || 'Erro ao gerar.' });
       }
     } catch (err) {
-      setMessage({ type: 'error', text: 'Erro de conexão.' });
+      setMessage({ type: 'error', text: 'Erro de conexão com o servidor.' });
     } finally {
       setLoading(false);
     }
@@ -103,9 +131,10 @@ function App() {
 
   return (
     <div className="layout">
+      {/* Navbar */}
       <header className="navbar">
         <div className="navbar-brand">
-          <h1>Biblioteca LPS</h1>
+          <h1>⚡ Biblioteca LPS</h1>
           <span className="progress-badge">{selectedFeatures.length} de {features.length} features</span>
         </div>
         <div className="project-config">
@@ -119,16 +148,17 @@ function App() {
       </header>
 
       <div className="container">
+        {/* Sidebar - Categories */}
         <aside className="sidebar">
           <h3>Categorias</h3>
           <ul>
             {categories.map(cat => (
-              <li 
-                key={cat} 
+              <li
+                key={cat}
                 className={activeCategory === cat ? 'active' : ''}
                 onClick={() => setActiveCategory(cat)}
               >
-                {cat}
+                <span>{categoryIcons[cat] || '📁'} {cat}</span>
                 <span className="count">
                   {features.filter(f => (cat === 'Todas' || f.category === cat) && selectedFeatures.includes(f.id)).length}
                 </span>
@@ -137,6 +167,7 @@ function App() {
           </ul>
         </aside>
 
+        {/* Main Content - Feature Cards */}
         <main className="main-content">
           <div className="features-grid">
             {filteredFeatures.map(feature => (
@@ -147,7 +178,7 @@ function App() {
               >
                 <div className="card-top">
                   <div className="checkbox">
-                    {selectedFeatures.includes(feature.id) ? '✓' : ''}
+                    <CheckIcon />
                   </div>
                   <div className="card-info">
                     <h4>{feature.name}</h4>
@@ -163,7 +194,8 @@ function App() {
                   )}
                   {feature.dependencies.length > 0 && (
                     <span className="dep-link" title={`Requer: ${feature.dependencies.join(', ')}`}>
-                      🔗 {feature.dependencies.length}
+                      <LinkIcon />
+                      {feature.dependencies.length} dep{feature.dependencies.length > 1 ? 's' : '.'}
                     </span>
                   )}
                 </div>
@@ -172,8 +204,24 @@ function App() {
           </div>
         </main>
 
+        {/* Summary Panel */}
         <aside className="summary-panel">
           <h3>Resumo</h3>
+
+          {/* Progress Bar */}
+          <div className="progress-bar-container">
+            <div className="progress-bar-info">
+              <span>Progresso</span>
+              <span className="progress-percent">{progressPercent}%</span>
+            </div>
+            <div className="progress-bar-track">
+              <div
+                className="progress-bar-fill"
+                style={{ width: `${progressPercent}%` }}
+              ></div>
+            </div>
+          </div>
+
           <div className="summary-content">
             <div className="summary-group">
               <label>Selecionadas ({selectedFeatures.length})</label>
@@ -186,15 +234,15 @@ function App() {
           </div>
           <div className="actions">
             {message && <div className={`message ${message.type}`}>{message.text}</div>}
-            <button 
-              className="btn-primary" 
+            <button
+              className="btn-primary"
               disabled={!projectName.trim() || loading}
               onClick={handleGenerate}
             >
-              {loading ? 'Gerando...' : 'Gerar Aplicação'}
+              {loading ? '⏳ Gerando...' : '🚀 Gerar Aplicação'}
             </button>
             <button className="btn-secondary" onClick={() => setSelectedFeatures(features.filter(f => f.mandatory).map(f => f.id))}>
-              Resetar
+              Resetar Seleção
             </button>
           </div>
         </aside>
