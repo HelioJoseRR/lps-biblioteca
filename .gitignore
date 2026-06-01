@@ -44,9 +44,9 @@ postgres-data/
 # DIRETÓRIO DE SAÍDA (LPS)
 # =========================
 # Ignora todas as aplicações e pastas geradas pelo sistema
-output/*
+generator-service/output/*
 # Mas mantém a pasta 'output' no repositório através do .gitkeep
-!output/.gitkeep
+!generator-service/output/.gitkeep
 
 # =========================
 # EDITORES DE CÓDIGO / IDEs
