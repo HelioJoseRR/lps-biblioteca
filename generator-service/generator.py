@@ -8,6 +8,14 @@ app = Flask(__name__)
 CORS(app)
 
 OUTPUT_DIR = "output"
+TEMPLATES_DIR = "templates"
+
+def read_template(category, name):
+    path = os.path.join(TEMPLATES_DIR, category, name)
+    if not os.path.exists(path):
+        path = os.path.join(TEMPLATES_DIR, "geral", name)
+    with open(path, 'r', encoding='utf-8') as f:
+        return f.read()
 
 def write_file(path, content):
     os.makedirs(os.path.dirname(path), exist_ok=True)
@@ -30,158 +38,65 @@ def create_docker_compose(project_dir, features):
     depends_on:
       - db
 """
-    
-    docker_compose_content = f"""version: '3.8'
-
-services:
-  db:
-    image: postgres:15
-    environment:
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
-      POSTGRES_DB: library_db
-    ports:
-      - "5432:5432"
-    volumes:
-      - ./database/init.sql:/docker-entrypoint-initdb.d/init.sql
-
-  gateway:
-    build: ./api-gateway
-    ports:
-      - "8080:8080"
-    depends_on:
-      - db
-
-  frontend:
-    build: ./frontend
-    ports:
-      - "3000:80"
-    depends_on:
-      - gateway
-
-{services_yml}
-"""
-    write_file(os.path.join(project_dir, "docker-compose.yml"), docker_compose_content)
+    tmpl = read_template("geral", "docker-compose.yml.tmpl")
+    content = tmpl.format(services_yml=services_yml)
+    write_file(os.path.join(project_dir, "docker-compose.yml"), content)
 
 def create_frontend(project_dir, features):
     frontend_dir = os.path.join(project_dir, "frontend")
-    write_file(os.path.join(frontend_dir, "Dockerfile"), """FROM nginx:alpine
-COPY ./src /usr/share/nginx/html
-EXPOSE 80
-CMD ["nginx", "-g", "daemon off;"]
-""")
     
-    features_list = "<ul>" + "".join([f"<li>{feat}</li>" for feat in features]) + "</ul>"
+    # Root files
+    write_file(os.path.join(frontend_dir, "package.json"), read_template("frontend", "package.json.tmpl"))
+    write_file(os.path.join(frontend_dir, "vite.config.js"), read_template("frontend", "vite.config.js.tmpl"))
+    write_file(os.path.join(frontend_dir, "index.html"), read_template("frontend", "index.html.tmpl"))
+    write_file(os.path.join(frontend_dir, "Dockerfile"), read_template("frontend", "Dockerfile.tmpl"))
     
-    index_html = f"""<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Generated Application</title>
-    <style>
-        body {{ font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; margin: 40px; background-color: #f9fafb; color: #111827; }}
-        h1 {{ color: #2563eb; }}
-        .card {{ background: #ffffff; padding: 20px; border-radius: 8px; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1); margin-top: 20px; }}
-        .docs-link {{ display: inline-block; margin-top: 15px; padding: 10px 15px; background: #2563eb; color: white; text-decoration: none; border-radius: 5px; }}
-    </style>
-</head>
-<body>
-    <h1>Application Dashboard</h1>
-    <p>This frontend was dynamically generated based on your selections.</p>
-    
-    <div class="card">
-        <h2>Provisioned Microservices:</h2>
-        {features_list}
-        
-        <a href="http://localhost:8080/docs" target="_blank" class="docs-link">View API Gateway Documentation</a>
-    </div>
-
-    <script>
-        fetch('http://localhost:8080/')
-            .then(res => res.json())
-            .then(data => console.log("Gateway Status:", data))
-            .catch(err => console.error("Gateway is not reachable", err));
-    </script>
-</body>
-</html>
-"""
-    write_file(os.path.join(frontend_dir, "src", "index.html"), index_html)
+    # src files
+    write_file(os.path.join(frontend_dir, "src", "main.jsx"), read_template("frontend", "src/main.jsx.tmpl"))
+    write_file(os.path.join(frontend_dir, "src", "App.jsx"), read_template("frontend", "src/App.jsx.tmpl"))
+    write_file(os.path.join(frontend_dir, "src", "App.css"), read_template("frontend", "src/App.css.tmpl"))
 
 def create_microservices(project_dir, features):
     for feat in features:
         feat_dir = os.path.join(project_dir, feat)
         
-        write_file(os.path.join(feat_dir, "Dockerfile"), """FROM python:3.9-slim
-WORKDIR /app
-COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
-COPY . .
-EXPOSE 8000
-CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]
-""")
+        # Dockerfile
+        docker_tmpl = read_template("geral", "Dockerfile.python.tmpl")
+        write_file(os.path.join(feat_dir, "Dockerfile"), docker_tmpl.format(port=8000))
         
-        write_file(os.path.join(feat_dir, "requirements.txt"), "fastapi\nuvicorn\n")
-        
-        main_py = f"""from fastapi import FastAPI
-
-app = FastAPI(title="{feat.capitalize()} API")
-
-@app.get("/")
-def read_root():
-    return {{"service": "{feat}", "status": "running"}}
-
-@app.get("/health")
-def health_check():
-    return {{"status": "ok"}}
-"""
+        if feat == 'auth-service':
+            write_file(os.path.join(feat_dir, "requirements.txt"), "fastapi\nuvicorn\npython-jose[cryptography]\npasslib[bcrypt]\npython-multipart\n")
+            main_py = read_template("auth-service", "main.py.tmpl")
+        elif feat == 'catalogo-service':
+            write_file(os.path.join(feat_dir, "requirements.txt"), "fastapi\nuvicorn\npsycopg2-binary\n")
+            main_py = read_template("catalogo-service", "main.py.tmpl")
+        else:
+            write_file(os.path.join(feat_dir, "requirements.txt"), "fastapi\nuvicorn\n")
+            main_tmpl = read_template("geral", "microservice_main.py.tmpl")
+            main_py = main_tmpl.format(name=feat.capitalize(), id=feat)
+            
         write_file(os.path.join(feat_dir, "main.py"), main_py)
 
 def create_api_gateway(project_dir, features):
     gw_dir = os.path.join(project_dir, "api-gateway")
-    
-    write_file(os.path.join(gw_dir, "Dockerfile"), """FROM python:3.9-slim
-WORKDIR /app
-COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
-COPY . .
-EXPOSE 8080
-CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8080"]
-""")
-    
+    docker_tmpl = read_template("geral", "Dockerfile.python.tmpl")
+    write_file(os.path.join(gw_dir, "Dockerfile"), docker_tmpl.format(port=8080))
     write_file(os.path.join(gw_dir, "requirements.txt"), "fastapi\nuvicorn\nhttpx\n")
     
     routes = "\n".join([
         f"""
-@app.get("/{feat}/{{path:path}}")
+@app.api_route("/{feat}/{{path:path}}", methods=["GET", "POST", "PUT", "DELETE"])
 async def proxy_{feat.replace('-', '_')}(path: str):
-    # Simulates proxy routing to the microservice
-    return {{"gateway": "proxying to {feat}", "path": path}}
+    import httpx
+    async with httpx.AsyncClient() as client:
+        # Simplificacao: roteia para o container via docker network
+        url = f"http://{feat}:8000/{{path}}"
+        # No mundo real, repassariamos params e headers
+        return {{"gateway": "Proxy to {feat}", "url": url}}
 """ for feat in features])
 
-    main_py = f"""from fastapi import FastAPI
-from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import RedirectResponse
-
-app = FastAPI(title="API Gateway", description="Central routing for microservices. Interactive documentation available.", version="1.0.0")
-
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
-
-{routes}
-
-@app.get("/")
-def root():
-    return {{"status": "Gateway Operational", "services": {json.dumps(features)}}}
-
-@app.get("/docs-redirect")
-def redirect_docs():
-    return RedirectResponse(url="/docs")
-"""
+    gw_tmpl = read_template("api-gateway", "main.py.tmpl")
+    main_py = gw_tmpl.format(routes=routes, services_json=json.dumps(features))
     write_file(os.path.join(gw_dir, "main.py"), main_py)
 
 @app.route('/generate', methods=['POST'])
@@ -189,8 +104,6 @@ def generate():
     data = request.json
     project_name = data.get('projectName', 'app')
     features = data.get('features', [])
-    
-    print(f"Gerando aplicação '{{project_name}}' com features: {{features}}")
     
     project_dir = os.path.join(OUTPUT_DIR, project_name)
     if os.path.exists(project_dir):
@@ -206,18 +119,32 @@ def generate():
         # Database schema
         db_dir = os.path.join(project_dir, "database")
         os.makedirs(db_dir, exist_ok=True)
-        sql_script = "-- Auto-generated Database Schema\\n\\n"
-        for feat in features:
-            table_name = feat.replace('-', '_')
-            sql_script += f"CREATE TABLE IF NOT EXISTS {table_name}_records (id SERIAL PRIMARY KEY, data JSONB);\\n"
         
+        auth_sql = ""
+        if 'auth-service' in features:
+            auth_sql = """CREATE TABLE users (id SERIAL PRIMARY KEY, username VARCHAR(50) UNIQUE, password_hash TEXT);
+CREATE TABLE roles (id SERIAL PRIMARY KEY, name VARCHAR(20) UNIQUE);
+INSERT INTO roles (name) VALUES ('admin'), ('user');"""
+
+        services_sql = """CREATE TABLE IF NOT EXISTS livros (
+    id SERIAL PRIMARY KEY,
+    titulo VARCHAR(255) NOT NULL,
+    autor VARCHAR(255) NOT NULL,
+    ano INTEGER,
+    categoria VARCHAR(100)
+);
+INSERT INTO livros (titulo, autor, ano, categoria) VALUES 
+('O Senhor dos Anéis', 'J.R.R. Tolkien', 1954, 'Fantasia'),
+('1984', 'George Orwell', 1949, 'Distopia');"""
+
+        sql_tmpl = read_template("geral", "init.sql.tmpl")
+        sql_script = sql_tmpl.format(auth_sql=auth_sql, services_sql=services_sql)
         write_file(os.path.join(db_dir, "init.sql"), sql_script)
 
     except Exception as e:
-        print(f"Erro ao gerar: {{e}}")
-        return jsonify({{"error": str(e), "status": "error"}}), 500
+        return jsonify({"error": str(e), "status": "error"}), 500
         
-    return jsonify({{"message": f"Aplicação '{{project_name}}' gerada com sucesso", "status": "success"}}), 200
+    return jsonify({"message": f"Aplicação '{project_name}' gerada com sucesso", "status": "success"}), 200
 
 if __name__ == '__main__':
     os.makedirs(OUTPUT_DIR, exist_ok=True)

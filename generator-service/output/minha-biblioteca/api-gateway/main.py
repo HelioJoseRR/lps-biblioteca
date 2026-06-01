@@ -2,7 +2,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import RedirectResponse
 
-app = FastAPI(title="API Gateway", description="Central routing for microservices. Interactive documentation available.", version="1.0.0")
+app = FastAPI(title="API Gateway", description="Ponto central de acesso aos microsserviços.", version="1.0.0")
 
 app.add_middleware(
     CORSMiddleware,
@@ -12,28 +12,16 @@ app.add_middleware(
 )
 
 
-@app.get("/catalogo-service/{path:path}")
+@app.api_route("/catalogo-service/{path:path}", methods=["GET", "POST", "PUT", "DELETE"])
 async def proxy_catalogo_service(path: str):
-    # Simulates proxy routing to the microservice
-    return {"gateway": "proxying to catalogo-service", "path": path}
-
-
-@app.get("/emprestimo-service/{path:path}")
-async def proxy_emprestimo_service(path: str):
-    # Simulates proxy routing to the microservice
-    return {"gateway": "proxying to emprestimo-service", "path": path}
-
-
-@app.get("/auth-service/{path:path}")
-async def proxy_auth_service(path: str):
-    # Simulates proxy routing to the microservice
-    return {"gateway": "proxying to auth-service", "path": path}
+    import httpx
+    async with httpx.AsyncClient() as client:
+        # Simplificacao: roteia para o container via docker network
+        url = f"http://catalogo-service:8000/{path}"
+        # No mundo real, repassariamos params e headers
+        return {"gateway": "Proxy to catalogo-service", "url": url}
 
 
 @app.get("/")
 def root():
-    return {"status": "Gateway Operational", "services": ["catalogo-service", "emprestimo-service", "auth-service"]}
-
-@app.get("/docs-redirect")
-def redirect_docs():
-    return RedirectResponse(url="/docs")
+    return {"status": "Gateway Operacional", "servicos_disponiveis": ["catalogo-service"]}

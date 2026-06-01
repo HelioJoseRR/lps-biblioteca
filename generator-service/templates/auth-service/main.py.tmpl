@@ -1,0 +1,42 @@
+from fastapi import FastAPI, Depends, HTTPException, status
+from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
+from datetime import datetime, timedelta
+from jose import JWTError, jwt
+from passlib.context import CryptContext
+from pydantic import BaseModel
+from typing import List, Optional
+
+app = FastAPI(title="Serviço de Autenticação", description="Gerenciamento de login, cadastro e permissões.")
+
+SECRET_KEY = "chave-secreta-jwt"
+ALGORITHM = "HS256"
+ACCESS_TOKEN_EXPIRE_MINUTES = 60
+
+pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="auth/login")
+
+class User(BaseModel):
+    username: str
+    email: Optional[str] = None
+    role: str = "user"
+
+@app.post("/auth/register", tags=["Autenticação"])
+async def register(user: User):
+    return {"message": "Usuário registrado com sucesso", "user": user.username}
+
+@app.post("/auth/login", tags=["Autenticação"])
+async def login(form_data: OAuth2PasswordRequestForm = Depends()):
+    access_token = jwt.encode({"sub": form_data.username, "role": "admin"}, SECRET_KEY, algorithm=ALGORITHM)
+    return {"access_token": access_token, "token_type": "bearer"}
+
+@app.post("/auth/logout", tags=["Autenticação"])
+async def logout():
+    return {"message": "Logout realizado com sucesso"}
+
+@app.get("/users/me", tags=["Usuários"])
+async def get_me(token: str = Depends(oauth2_scheme)):
+    return {"username": "usuario_atual", "role": "admin", "permissions": ["users:read", "users:write", "catalog:edit"]}
+
+@app.get("/users", tags=["Usuários"])
+async def list_users(token: str = Depends(oauth2_scheme)):
+    return [{"username": "admin", "role": "admin"}, {"username": "operador", "role": "editor"}]
