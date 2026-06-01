@@ -55,6 +55,7 @@ def create_frontend(project_dir, features):
     write_file(os.path.join(frontend_dir, "src", "main.jsx"), read_template("frontend", "src/main.jsx.tmpl"))
     write_file(os.path.join(frontend_dir, "src", "App.jsx"), read_template("frontend", "src/App.jsx.tmpl"))
     write_file(os.path.join(frontend_dir, "src", "App.css"), read_template("frontend", "src/App.css.tmpl"))
+    write_file(os.path.join(frontend_dir, "src", "features.js"), f"export const enabledFeatures = {json.dumps(features)};")
 
 def create_microservices(project_dir, features):
     for feat in features:
@@ -68,7 +69,7 @@ def create_microservices(project_dir, features):
             write_file(os.path.join(feat_dir, "requirements.txt"), "fastapi\nuvicorn\npython-jose[cryptography]\npasslib[bcrypt]\npython-multipart\n")
             main_py = read_template("auth-service", "main.py.tmpl")
         elif feat == 'catalogo-service':
-            write_file(os.path.join(feat_dir, "requirements.txt"), "fastapi\nuvicorn\npsycopg2-binary\n")
+            write_file(os.path.join(feat_dir, "requirements.txt"), "fastapi\nuvicorn\npsycopg2-binary\npython-multipart\n")
             main_py = read_template("catalogo-service", "main.py.tmpl")
         else:
             write_file(os.path.join(feat_dir, "requirements.txt"), "fastapi\nuvicorn\n")
@@ -83,21 +84,10 @@ def create_api_gateway(project_dir, features):
     write_file(os.path.join(gw_dir, "Dockerfile"), docker_tmpl.format(port=8080))
     write_file(os.path.join(gw_dir, "requirements.txt"), "fastapi\nuvicorn\nhttpx\n")
     
-    routes = "\n".join([
-        f"""
-@app.api_route("/{feat}/{{path:path}}", methods=["GET", "POST", "PUT", "DELETE"])
-async def proxy_{feat.replace('-', '_')}(path: str):
-    import httpx
-    async with httpx.AsyncClient() as client:
-        # Simplificacao: roteia para o container via docker network
-        url = f"http://{feat}:8000/{{path}}"
-        # No mundo real, repassariamos params e headers
-        return {{"gateway": "Proxy to {feat}", "url": url}}
-""" for feat in features])
-
     gw_tmpl = read_template("api-gateway", "main.py.tmpl")
-    main_py = gw_tmpl.format(routes=routes, services_json=json.dumps(features))
+    main_py = gw_tmpl.format(services_json=json.dumps(features))
     write_file(os.path.join(gw_dir, "main.py"), main_py)
+
 
 @app.route('/generate', methods=['POST'])
 def generate():
@@ -122,20 +112,24 @@ def generate():
         
         auth_sql = ""
         if 'auth-service' in features:
-            auth_sql = """CREATE TABLE users (id SERIAL PRIMARY KEY, username VARCHAR(50) UNIQUE, password_hash TEXT);
-CREATE TABLE roles (id SERIAL PRIMARY KEY, name VARCHAR(20) UNIQUE);
-INSERT INTO roles (name) VALUES ('admin'), ('user');"""
+            auth_sql = """CREATE TABLE IF NOT EXISTS users (id SERIAL PRIMARY KEY, username VARCHAR(50) UNIQUE, password_hash TEXT);
+CREATE TABLE IF NOT EXISTS roles (id SERIAL PRIMARY KEY, name VARCHAR(20) UNIQUE);
+INSERT INTO roles (name) VALUES ('admin'), ('user') ON CONFLICT DO NOTHING;
+INSERT INTO users (username, password_hash) SELECT 'admin', 'admin' WHERE NOT EXISTS (SELECT 1 FROM users WHERE username = 'admin');"""
 
         services_sql = """CREATE TABLE IF NOT EXISTS livros (
     id SERIAL PRIMARY KEY,
     titulo VARCHAR(255) NOT NULL,
     autor VARCHAR(255) NOT NULL,
     ano INTEGER,
-    categoria VARCHAR(100)
+    categoria VARCHAR(100),
+    sinopse TEXT,
+    tipo_edicao VARCHAR(50),
+    capa_url VARCHAR(255)
 );
-INSERT INTO livros (titulo, autor, ano, categoria) VALUES 
-('O Senhor dos Anéis', 'J.R.R. Tolkien', 1954, 'Fantasia'),
-('1984', 'George Orwell', 1949, 'Distopia');"""
+INSERT INTO livros (titulo, autor, ano, categoria, sinopse, tipo_edicao) VALUES 
+('O Senhor dos Anéis', 'J.R.R. Tolkien', 1954, 'Fantasia', 'A grande jornada para destruir o Um Anel.', 'Capa Dura'),
+('1984', 'George Orwell', 1949, 'Ficção Científica', 'Uma distopia onde o Grande Irmão tudo vê.', 'Bolso');"""
 
         sql_tmpl = read_template("geral", "init.sql.tmpl")
         sql_script = sql_tmpl.format(auth_sql=auth_sql, services_sql=services_sql)
