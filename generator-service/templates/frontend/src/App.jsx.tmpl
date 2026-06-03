@@ -1,8 +1,28 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { enabledFeatures } from './features'
+import Estatisticas from './components/Estatisticas'
 
 /* ===== SVG Icon Components ===== */
 const Icons = {
+  bell: (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path>
+      <path d="M13.73 21a2 2 0 0 1-3.46 0"></path>
+    </svg>
+  ),
+  user: (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+      <circle cx="12" cy="7" r="4"></circle>
+    </svg>
+  ),
+  logOut: (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
+      <polyline points="16 17 21 12 16 7"></polyline>
+      <line x1="21" y1="12" x2="9" y2="12"></line>
+    </svg>
+  ),
   book: (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
       <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/>
@@ -76,6 +96,71 @@ const Icons = {
       <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
     </svg>
   ),
+  heart: (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/>
+    </svg>
+  ),
+  heartFilled: (
+    <svg viewBox="0 0 24 24" fill="#ef4444" stroke="#ef4444" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/>
+    </svg>
+  ),
+  globe: (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <circle cx="12" cy="12" r="10"/>
+      <line x1="2" y1="12" x2="22" y2="12"/>
+      <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/>
+    </svg>
+  ),
+  trash: (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <polyline points="3 6 5 6 21 6"/>
+      <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
+    </svg>
+  ),
+  users: (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
+      <circle cx="9" cy="7" r="4"/>
+      <path d="M23 21v-2a4 4 0 0 0-3-3.87"/>
+      <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+    </svg>
+  ),
+  folder: (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/>
+    </svg>
+  ),
+  bell: (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path>
+      <path d="M13.73 21a2 2 0 0 1-3.46 0"></path>
+    </svg>
+  ),
+  dollar: (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <line x1="12" y1="1" x2="12" y2="23"></line>
+      <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path>
+    </svg>
+  ),
+  chart: (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <line x1="18" y1="20" x2="18" y2="10"></line>
+      <line x1="12" y1="20" x2="12" y2="4"></line>
+      <line x1="6" y1="20" x2="6" y2="14"></line>
+    </svg>
+  ),
+  star: (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon>
+    </svg>
+  ),
+  starFilled: (
+    <svg viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon>
+    </svg>
+  )
 };
 
 /* ===== Toast Component ===== */
@@ -99,37 +184,145 @@ function App() {
   const [busca, setBusca] = useState('');
   const [loading, setLoading] = useState(false);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
-  const [view, setView] = useState('landing');
+  const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
+  const userMenuRef = useRef(null);
+  const [view, setView] = useState(() => {
+    const hash = window.location.hash.replace('#/', '');
+    return hash || sessionStorage.getItem('currentView') || 'landing';
+  });
+
+  // Close user dropdown on outside click
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (userMenuRef.current && !userMenuRef.current.contains(event.target)) {
+        setIsUserMenuOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  // Watch for view changes and store in sessionStorage and Hash
+  useEffect(() => {
+    sessionStorage.setItem('currentView', view);
+    if (window.location.hash.replace('#/', '') !== view) {
+      window.location.hash = `/${view}`;
+    }
+  }, [view]);
+
+  // Listen to external hash changes (Back/Forward buttons)
+  useEffect(() => {
+    const handleHashChange = () => {
+      const hash = window.location.hash.replace('#/', '');
+      if (hash && hash !== view) {
+        setView(hash);
+      }
+    };
+    window.addEventListener('hashchange', handleHashChange);
+    return () => window.removeEventListener('hashchange', handleHashChange);
+  }, [view]);
   const [selectedBook, setSelectedBook] = useState(null);
   
+  // Advanced Filters (F-4)
+  const [categoriaFilter, setCategoriaFilter] = useState('');
+  const [tipoEdicaoFilter, setTipoEdicaoFilter] = useState('');
+  const [anoFilter, setAnoFilter] = useState('');
+  const [categoriasLista, setCategoriasLista] = useState([]);
+  const [pagination, setPagination] = useState({ page: 1, pages: 1, total: 0 });
+
+  // Notificacoes (F-2)
+  const [notificacoes, setNotificacoes] = useState([]);
+  const [unreadCount, setUnreadCount] = useState(0);
+
+  // Multas (F-1)
+  const [multas, setMultas] = useState([]);
+  const [multasSummary, setMultasSummary] = useState(null);
+
+  // Avaliacoes (F-3)
+  const [avaliacoes, setAvaliacoes] = useState([]);
+  const [minhaAvaliacao, setMinhaAvaliacao] = useState({ nota: 5, comentario: '' });
+  const [hoverNota, setHoverNota] = useState(0);
+  const [mediaLivro, setMediaLivro] = useState({ media: 0, total: 0 });
+  const [topLivros, setTopLivros] = useState([]);
+
+  // Estatisticas (F-5)
+  const [estatisticas, setEstatisticas] = useState(null);
+  
   // Persist login state
-  const [isLoggedIn, setIsLoggedIn] = useState(() => {
-    return localStorage.getItem('isLoggedIn') === 'true';
+  const [user, setUser] = useState(() => {
+    const saved = sessionStorage.getItem('user');
+    try {
+      return saved && saved !== "undefined" ? JSON.parse(saved) : null;
+    } catch (e) {
+      sessionStorage.removeItem('user');
+      return null;
+    }
   });
+  const isLoggedIn = !!user;
+  const isAdmin = user && user.role === 'admin';
+  const token = sessionStorage.getItem('token');
   
   const [showAddModal, setShowAddModal] = useState(false);
   const [toast, setToast] = useState(null);
 
   const [loginUser, setLoginUser] = useState('');
   const [loginPass, setLoginPass] = useState('');
+  
+  // New States for Auth/Users
+  const [regUser, setRegUser] = useState('');
+  const [regEmail, setRegEmail] = useState('');
+  const [regPass, setRegPass] = useState('');
+  const [regConfirm, setRegConfirm] = useState('');
+  const [usersList, setUsersList] = useState([]);
+  
+  // Collections & Favorites
+  const [favorites, setFavorites] = useState([]);
+  const [myCollections, setMyCollections] = useState([]);
+  const [publicCollections, setPublicCollections] = useState([]);
+  
+  // Emprestimos
+  const [borrowedBooks, setBorrowedBooks] = useState([]);
+  const [myLoan, setMyLoan] = useState(null);
+  const [allLoans, setAllLoans] = useState([]);
+  const [adminTab, setAdminTab] = useState('users');
+  const [adminNotif, setAdminNotif] = useState({ tipo_envio: 'broadcast', user_id: '', titulo: '', mensagem: '', tipo_msg: 'info' });
+  const [showColModal, setShowColModal] = useState(false);
+  const [newCol, setNewCol] = useState({ name: '', description: '', is_public: false });
+  const [bookToCollect, setBookToCollect] = useState(null);
+  const [collectionTab, setCollectionTab] = useState('mine');
+  const [colSearch, setColSearch] = useState('');
   const [newBook, setNewBook] = useState({ titulo: '', autor: '', ano: '', categoria: '', sinopse: '', tipo_edicao: '', capa: null });
   const [authorSuggestions, setAuthorSuggestions] = useState([]);
   const [showAuthorSuggestions, setShowAuthorSuggestions] = useState(false);
+  const [selectedCollection, setSelectedCollection] = useState(null);
+  const [showAddBookToColModal, setShowAddBookToColModal] = useState(false);
+  const [addBookColSearch, setAddBookColSearch] = useState('');
 
   const showToast = useCallback((message, type = 'success') => {
     setToast({ message, type });
   }, []);
 
-  const fetchLivros = async (termo = '') => {
+  const fetchLivros = async (termo = '', page = 1) => {
     setLoading(true);
     try {
-      const url = termo
-        ? `http://localhost:8080/catalogo-service/livros?busca=${termo}`
-        : 'http://localhost:8080/catalogo-service/livros';
+      let query = `?page=${page}&per_page=12`;
+      if (termo) query += `&q=${encodeURIComponent(termo)}`;
+      if (categoriaFilter) query += `&categoria=${categoriaFilter}`;
+      if (anoFilter) query += `&ano_min=${anoFilter}`;
+      
+      const url = enabledFeatures.includes('busca-service')
+        ? `http://localhost:8080/busca-service/busca${query}`
+        : `http://localhost:8080/catalogo-service/livros${query}`;
+        
       const response = await fetch(url);
       if (response.ok) {
         const data = await response.json();
-        setLivros(Array.isArray(data) ? data : []);
+        if (data.items) {
+          setLivros(data.items);
+          setPagination({ page: data.page, pages: data.pages, total: data.total });
+        } else {
+          setLivros(Array.isArray(data) ? data : []);
+        }
       }
     } catch (error) {
       console.error("Erro ao buscar livros:", error);
@@ -138,9 +331,153 @@ function App() {
     }
   };
 
+  const fetchCategoriasLista = async () => {
+    try {
+      const url = enabledFeatures.includes('busca-service')
+        ? 'http://localhost:8080/busca-service/busca/categorias'
+        : 'http://localhost:8080/catalogo-service/livros/categorias';
+      const response = await fetch(url);
+      if (response.ok) setCategoriasLista(await response.json());
+    } catch (e) { console.error(e); }
+  };
+
+  // Notificacoes API
+  const fetchNotificacoes = async () => {
+    if (!isLoggedIn || !enabledFeatures.includes('notificacao-service')) return;
+    try {
+      const res = await fetch('http://localhost:8080/notificacao-service/notificacoes/me', {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (res.ok) setNotificacoes(await res.json());
+      
+      const resCount = await fetch('http://localhost:8080/notificacao-service/notificacoes/count', {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (resCount.ok) {
+        const data = await resCount.json();
+        setUnreadCount(data.unread_count);
+      }
+    } catch (e) { console.error(e); }
+  };
+
+  const markNotifRead = async (id) => {
+    try {
+      await fetch(`http://localhost:8080/notificacao-service/notificacoes/${id}/ler`, {
+        method: 'PUT', headers: { 'Authorization': `Bearer ${token}` }
+      });
+      fetchNotificacoes();
+    } catch (e) { console.error(e); }
+  };
+
+  const markAllNotifRead = async () => {
+    try {
+      await fetch('http://localhost:8080/notificacao-service/notificacoes/ler-todas', {
+        method: 'PUT', headers: { 'Authorization': `Bearer ${token}` }
+      });
+      fetchNotificacoes();
+    } catch (e) { console.error(e); }
+  };
+
+  // Multas API
+  const fetchMultas = async () => {
+    if (!isLoggedIn || !enabledFeatures.includes('multa-service')) return;
+    try {
+      const res = await fetch('http://localhost:8080/multa-service/multas/me', {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (res.ok) setMultas(await res.json());
+      
+      if (isAdmin) {
+        const resSum = await fetch('http://localhost:8080/multa-service/multas/resumo', {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        if (resSum.ok) setMultasSummary(await resSum.json());
+      }
+    } catch (e) { console.error(e); }
+  };
+
+  const payMulta = async (id) => {
+    try {
+      const res = await fetch(`http://localhost:8080/multa-service/multas/${id}/pagar`, {
+        method: 'PUT', headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (res.ok) {
+        showToast('Multa paga com sucesso!');
+        fetchMultas();
+      }
+    } catch (e) { console.error(e); }
+  };
+
+  // Avaliacoes API
+  const fetchAvaliacoes = async (bookId) => {
+    if (!enabledFeatures.includes('avaliacao-service')) return;
+    try {
+      const res = await fetch(`http://localhost:8080/avaliacao-service/avaliacoes/${bookId}`);
+      if (res.ok) setAvaliacoes(await res.json());
+      
+      const resMedia = await fetch(`http://localhost:8080/avaliacao-service/avaliacoes/${bookId}/media`);
+      if (resMedia.ok) setMediaLivro(await resMedia.json());
+    } catch (e) { console.error(e); }
+  };
+
+  const submitAvaliacao = async (bookId) => {
+    if (!isLoggedIn) return showToast('Faça login para avaliar', 'error');
+    try {
+      const res = await fetch(`http://localhost:8080/avaliacao-service/avaliacoes/${bookId}`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify(minhaAvaliacao)
+      });
+      if (res.ok) {
+        showToast('Avaliação salva!');
+        setMinhaAvaliacao({ nota: 5, comentario: '' });
+        setHoverNota(0);
+        fetchAvaliacoes(bookId);
+      }
+    } catch (e) { console.error(e); }
+  };
+
+  const fetchTopLivros = async () => {
+    if (!enabledFeatures.includes('avaliacao-service')) return;
+    try {
+      const res = await fetch('http://localhost:8080/avaliacao-service/avaliacoes/top');
+      if (res.ok) setTopLivros(await res.json());
+    } catch (e) { console.error(e); }
+  };
+
+  // Estatisticas API
+  const fetchEstatisticas = async () => {
+    if (!enabledFeatures.includes('busca-service')) return;
+    try {
+      const res = await fetch('http://localhost:8080/busca-service/busca/estatisticas');
+      if (res.ok) setEstatisticas(await res.json());
+    } catch (e) { console.error(e); }
+  };
+
+  const openBookDetails = (livro) => {
+    setSelectedBook(livro);
+    setView('book-details');
+    fetchAvaliacoes(livro.id);
+  };
+
   useEffect(() => {
-    fetchLivros();
-  }, []);
+    fetchLivros(busca, pagination.page);
+    fetchCategoriasLista();
+    fetchTopLivros();
+    if (enabledFeatures.includes('emprestimo-service')) {
+      fetchBorrowedBooks();
+    }
+    if (enabledFeatures.includes('busca-service')) {
+      fetchEstatisticas();
+    }
+  }, [categoriaFilter, anoFilter, pagination.page]);
+
+  useEffect(() => {
+    if (isLoggedIn) {
+      fetchNotificacoes();
+      fetchMultas();
+    }
+  }, [isLoggedIn, view]);
 
   useEffect(() => {
     const delayDebounceFn = setTimeout(() => {
@@ -166,18 +503,20 @@ function App() {
 
       if (response.ok) {
         const data = await response.json();
-        localStorage.setItem('token', data.access_token);
-        localStorage.setItem('isLoggedIn', 'true');
-        setIsLoggedIn(true);
+        sessionStorage.setItem('token', data.access_token);
+        sessionStorage.setItem('user', JSON.stringify(data.user));
+        setUser(data.user);
         setView('landing');
         setLoginUser('');
         setLoginPass('');
         showToast('Autenticado com sucesso!');
       } else {
         // Fallback for when auth-service is not selected/available
-        if (loginUser === 'admin' && loginPass === 'admin') {
-          localStorage.setItem('isLoggedIn', 'true');
-          setIsLoggedIn(true);
+        if (loginUser.trim() === 'admin' && loginPass.trim() === 'admin') {
+          const adminUser = { username: 'admin', role: 'admin' };
+          sessionStorage.setItem('user', JSON.stringify(adminUser));
+          sessionStorage.setItem('token', 'fallback-admin-token');
+          setUser(adminUser);
           setView('landing');
           setLoginUser('');
           setLoginPass('');
@@ -188,9 +527,11 @@ function App() {
       }
     } catch (err) {
       // Fallback
-      if (loginUser === 'admin' && loginPass === 'admin') {
-        localStorage.setItem('isLoggedIn', 'true');
-        setIsLoggedIn(true);
+      if (loginUser.trim() === 'admin' && loginPass.trim() === 'admin') {
+        const adminUser = { username: 'admin', role: 'admin' };
+        sessionStorage.setItem('user', JSON.stringify(adminUser));
+        sessionStorage.setItem('token', 'fallback-admin-token');
+        setUser(adminUser);
         setView('landing');
         setLoginUser('');
         setLoginPass('');
@@ -202,11 +543,298 @@ function App() {
   };
 
   const handleLogout = () => {
-    localStorage.removeItem('isLoggedIn');
-    localStorage.removeItem('token');
-    setIsLoggedIn(false);
+    sessionStorage.removeItem('user');
+    sessionStorage.removeItem('token');
+    setUser(null);
     setIsMenuOpen(false);
+    setFavorites([]);
+    setMyCollections([]);
+    setView('landing');
     showToast('Sessão encerrada.');
+  };
+
+  const handleRegister = async (e) => {
+    e.preventDefault();
+    if (regPass !== regConfirm) {
+      showToast('As senhas não coincidem.', 'error');
+      return;
+    }
+    try {
+      const response = await fetch('http://localhost:8080/auth-service/auth/register', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username: regUser, email: regEmail, password: regPass })
+      });
+      if (response.ok) {
+        showToast('Conta criada com sucesso! Faça login.');
+        setView('login');
+        setRegUser(''); setRegEmail(''); setRegPass(''); setRegConfirm('');
+      } else {
+        const err = await response.json();
+        showToast(err.detail || 'Erro ao registrar.', 'error');
+      }
+    } catch (err) {
+      showToast('Erro de conexão.', 'error');
+    }
+  };
+
+  const fetchFavorites = async () => {
+    try {
+      const res = await fetch('http://localhost:8080/auth-service/favorites', {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setFavorites(data);
+      }
+    } catch (e) { console.error(e); }
+  };
+
+  const toggleFavorite = async (bookId) => {
+    if (!isLoggedIn) return showToast('Faça login para favoritar.', 'error');
+    try {
+      const res = await fetch(`http://localhost:8080/auth-service/favorites/${bookId}`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (data.action === 'added') setFavorites([...favorites, bookId]);
+        else setFavorites(favorites.filter(id => id !== bookId));
+      }
+    } catch (e) { console.error(e); }
+  };
+  
+  useEffect(() => {
+    if (isLoggedIn && token) {
+      fetchFavorites();
+      if (enabledFeatures.includes('emprestimo-service')) fetchMyLoan();
+    }
+  }, [isLoggedIn, token]);
+
+  useEffect(() => {
+    if (view === 'collections' && isLoggedIn && token) {
+      fetchMyCollections();
+      fetchPublicCollections();
+    }
+  }, [view]);
+
+  useEffect(() => {
+    if (view === 'admin-panel' && isAdmin && token) {
+      if (adminTab === 'users') fetchUsers();
+      if (adminTab === 'loans' && enabledFeatures.includes('emprestimo-service')) fetchAllLoans();
+    }
+  }, [view, adminTab]);
+
+  const sendAdminNotif = async (e) => {
+    e.preventDefault();
+    try {
+      let finalUserId = adminNotif.user_id;
+      if (adminNotif.tipo_envio === 'direto') {
+        // Tenta achar o ID pelo nome digitado
+        const targetUser = usersList.find(u => u.username.toLowerCase() === finalUserId.toLowerCase() || u.id.toString() === finalUserId);
+        if (targetUser) {
+          finalUserId = targetUser.id;
+        } else {
+          return showToast('Usuário não encontrado.', 'error');
+        }
+      }
+      const endpoint = adminNotif.tipo_envio === 'broadcast' 
+        ? 'http://localhost:8080/notificacao-service/notificacoes/broadcast'
+        : 'http://localhost:8080/notificacao-service/notificacoes';
+      
+      const payload = adminNotif.tipo_envio === 'broadcast' 
+        ? { titulo: adminNotif.titulo, mensagem: adminNotif.mensagem, tipo: adminNotif.tipo_msg }
+        : { user_id: parseInt(finalUserId), titulo: adminNotif.titulo, mensagem: adminNotif.mensagem, tipo: adminNotif.tipo_msg };
+
+      const res = await fetch(endpoint, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+        body: JSON.stringify(payload)
+      });
+
+      if (res.ok) {
+        showToast('Notificação enviada com sucesso!', 'success');
+        setAdminNotif({...adminNotif, titulo: '', mensagem: ''});
+      } else {
+        showToast('Erro ao enviar notificação.', 'error');
+      }
+    } catch (e) { console.error(e); }
+  };
+
+  const fetchMyCollections = async () => {
+    try {
+      const res = await fetch('http://localhost:8080/auth-service/collections/me', {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setMyCollections(data);
+      }
+    } catch (e) { console.error(e); }
+  };
+
+  const fetchPublicCollections = async () => {
+    try {
+      const res = await fetch('http://localhost:8080/auth-service/collections', {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setPublicCollections(data);
+      }
+    } catch (e) { console.error(e); }
+  };
+
+  const fetchUsers = async () => {
+    try {
+      const res = await fetch('http://localhost:8080/auth-service/users', {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setUsersList(data);
+      }
+    } catch (e) { console.error(e); }
+  };
+
+  const fetchBorrowedBooks = async () => {
+    try {
+      const res = await fetch('http://localhost:8080/emprestimo-service/status');
+      if (res.ok) setBorrowedBooks(await res.json());
+    } catch (e) { console.error(e); }
+  };
+
+  const fetchMyLoan = async () => {
+    try {
+      const res = await fetch('http://localhost:8080/emprestimo-service/me', {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (res.ok) setMyLoan(await res.json());
+      else setMyLoan(null);
+    } catch (e) { console.error(e); }
+  };
+
+  const fetchAllLoans = async () => {
+    try {
+      const res = await fetch('http://localhost:8080/emprestimo-service/all', {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (res.ok) setAllLoans(await res.json());
+    } catch (e) { console.error(e); }
+  };
+
+  const handleBorrow = async (bookId) => {
+    if (!isLoggedIn) return showToast('Faça login para emprestar.', 'error');
+    try {
+      const res = await fetch(`http://localhost:8080/emprestimo-service/${bookId}`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (res.ok) {
+        showToast('Empréstimo realizado com sucesso!');
+        fetchBorrowedBooks();
+        fetchMyLoan();
+      } else {
+        const err = await res.json();
+        showToast(err.detail || 'Erro ao realizar empréstimo.', 'error');
+      }
+    } catch (e) { showToast('Erro de conexão.', 'error'); }
+  };
+
+  const handleReturn = async (bookId) => {
+    if (!isLoggedIn) return;
+    try {
+      const res = await fetch(`http://localhost:8080/emprestimo-service/${bookId}`, {
+        method: 'DELETE',
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (res.ok) {
+        showToast('Livro devolvido com sucesso!');
+        fetchBorrowedBooks();
+        fetchMyLoan();
+        if (isAdmin) fetchAllLoans();
+      } else {
+        const err = await res.json();
+        showToast(err.detail || 'Erro ao devolver livro.', 'error');
+      }
+    } catch (e) { showToast('Erro de conexão.', 'error'); }
+  };
+
+  const handleCreateCollection = async (e) => {
+    e.preventDefault();
+    try {
+      const res = await fetch('http://localhost:8080/auth-service/collections', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+        body: JSON.stringify(newCol)
+      });
+      if (res.ok) {
+        showToast('Coleção criada com sucesso!');
+        setShowColModal(false);
+        setNewCol({ name: '', description: '', is_public: false });
+        fetchMyCollections();
+      }
+    } catch (e) { showToast('Erro ao criar coleção', 'error'); }
+  };
+
+  const removeBookFromCollection = async (collectionId, bookId) => {
+    try {
+      const res = await fetch(`http://localhost:8080/auth-service/collections/${collectionId}/books/${bookId}`, {
+        method: 'DELETE',
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (res.ok) {
+        showToast('Livro removido da coleção!');
+        fetchMyCollections();
+        fetchPublicCollections();
+        if (selectedCollection && selectedCollection.id === collectionId) {
+          setSelectedCollection({
+            ...selectedCollection,
+            books: selectedCollection.books.filter(id => id !== bookId)
+          });
+        }
+      } else {
+        showToast('Erro ao remover livro', 'error');
+      }
+    } catch (e) { console.error(e); }
+  };
+
+  const addBookToCollection = async (collectionId, bookId) => {
+    try {
+      const res = await fetch(`http://localhost:8080/auth-service/collections/${collectionId}/books/${bookId}`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (res.ok) {
+        showToast('Livro adicionado à coleção!');
+        fetchMyCollections();
+        setBookToCollect(null);
+        if (selectedCollection && selectedCollection.id === collectionId) {
+          setSelectedCollection({
+            ...selectedCollection,
+            books: [...selectedCollection.books, bookId]
+          });
+          setShowAddBookToColModal(false);
+          setAddBookColSearch('');
+        }
+      } else {
+        showToast('Erro ou livro já na coleção', 'error');
+      }
+    } catch (e) { console.error(e); }
+  };
+
+  const changeUserRole = async (userId, newRole) => {
+    try {
+      const res = await fetch(`http://localhost:8080/auth-service/users/${userId}/role?role=${newRole}`, {
+        method: 'PUT',
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (res.ok) {
+        showToast('Permissão atualizada!');
+        fetchUsers();
+      }
+    } catch (e) { console.error(e); }
   };
 
   const fetchAuthorSuggestions = async (query) => {
@@ -322,26 +950,103 @@ function App() {
           </div>
 
           <ul className={`nav-links ${isMenuOpen ? 'active' : ''}`}>
-            <li
-              className={view === 'landing' ? 'active' : ''}
+            <button
+              className={`nav-pill-btn ${view === 'landing' ? 'active' : ''}`}
               onClick={() => { setView('landing'); setIsMenuOpen(false); }}
             >
-              Explorar
-            </li>
+              {Icons.search} <span>Explorar</span>
+            </button>
+            {enabledFeatures.includes('busca-service') && (
+              <button
+                className={`nav-pill-btn ${view === 'estatisticas' ? 'active' : ''}`}
+                onClick={() => { setView('estatisticas'); setIsMenuOpen(false); }}
+              >
+                {Icons.chart} <span>Estatísticas</span>
+              </button>
+            )}
             {!isLoggedIn ? (
-              <li
-                className={view === 'login' ? 'active' : ''}
-                onClick={() => { setView('login'); setIsMenuOpen(false); }}
-              >
-                Admin
-              </li>
+              <>
+                <button
+                  className={`nav-pill-btn ${view === 'login' ? 'active' : ''}`}
+                  onClick={() => { setView('login'); setIsMenuOpen(false); }}
+                >
+                  {Icons.user} <span>Entrar</span>
+                </button>
+                {enabledFeatures.includes('auth-service') && (
+                  <button
+                    className={`nav-pill-btn ${view === 'register' ? 'active' : ''}`}
+                    onClick={() => { setView('register'); setIsMenuOpen(false); }}
+                  >
+                    {Icons.plus} <span>Cadastrar</span>
+                  </button>
+                )}
+              </>
             ) : (
-              <li
-                className="logout-btn"
-                onClick={handleLogout}
-              >
-                Sair
-              </li>
+              <div className="nav-user-menu">
+                {enabledFeatures.includes('auth-service') && (
+                  <>
+                    <button className={`nav-pill-btn ${view === 'favorites' ? 'active' : ''}`} onClick={() => { setView('favorites'); setIsMenuOpen(false); }}>
+                      {Icons.heart} <span>Favoritos</span>
+                    </button>
+                    <button className={`nav-pill-btn ${view === 'collections' ? 'active' : ''}`} onClick={() => { setView('collections'); setIsMenuOpen(false); }}>
+                      {Icons.folder} <span>Coleções</span>
+                    </button>
+                  </>
+                )}
+                {enabledFeatures.includes('emprestimo-service') && (
+                  <button className={`nav-pill-btn ${view === 'my-loan' ? 'active' : ''}`} onClick={() => { setView('my-loan'); setIsMenuOpen(false); }}>
+                    {Icons.book} <span>Empréstimos</span>
+                  </button>
+                )}
+                {enabledFeatures.includes('multa-service') && (
+                  <button className={`nav-pill-btn ${view === 'multas' ? 'active' : ''}`} onClick={() => { setView('multas'); setIsMenuOpen(false); }}>
+                    {Icons.dollar} <span>Multas</span>
+                  </button>
+                )}
+                
+                <div className="nav-divider"></div>
+
+                {enabledFeatures.includes('notificacao-service') && (
+                  <button className={`nav-bell-btn ${view === 'notificacoes' ? 'active' : ''}`} onClick={() => { setView('notificacoes'); setIsMenuOpen(false); }} title="Notificações">
+                    {Icons.bell}
+                    {unreadCount > 0 && <span className="bell-dot"></span>}
+                  </button>
+                )}
+                
+                {/* Perfil Dropdown / Actions */}
+                <div className="nav-profile-group">
+                  {isAdmin && enabledFeatures.includes('auth-service') && (
+                    <button className={`nav-pill-btn ${view === 'admin-panel' ? 'active' : ''}`} onClick={() => { setView('admin-panel'); setIsMenuOpen(false); }}>
+                      {Icons.lock} <span>Admin</span>
+                    </button>
+                  )}
+                  <div className="user-dropdown-container" ref={userMenuRef}>
+                    <button
+                      className="user-pill-modern user-pill-clickable"
+                      onClick={() => setIsUserMenuOpen(!isUserMenuOpen)}
+                      aria-expanded={isUserMenuOpen}
+                      aria-haspopup="true"
+                    >
+                      <div className="user-avatar">{user.username.charAt(0).toUpperCase()}</div>
+                      <span>{user.username}</span>
+                      <svg className={`user-pill-chevron ${isUserMenuOpen ? 'open' : ''}`} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" width="14" height="14">
+                        <polyline points="6 9 12 15 18 9"/>
+                      </svg>
+                    </button>
+                    {isUserMenuOpen && (
+                      <div className="user-dropdown-menu">
+                        <button className="user-dropdown-item" onClick={() => { setView('landing'); setIsUserMenuOpen(false); setIsMenuOpen(false); }}>
+                          {Icons.user} <span>Meu Perfil</span>
+                        </button>
+                        <div className="user-dropdown-divider"></div>
+                        <button className="user-dropdown-item user-dropdown-danger" onClick={() => { handleLogout(); setIsUserMenuOpen(false); }}>
+                          {Icons.logOut} <span>Sair</span>
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
             )}
           </ul>
         </div>
@@ -376,58 +1081,642 @@ function App() {
                   <p>{selectedBook.sinopse || `Um clássico indispensável que cativa leitores de todas as idades. A narrativa profunda e envolvente de ${selectedBook.autor} transporta o leitor para um universo rico em detalhes, explorando temas universais através de personagens inesquecíveis. Esta obra, categorizada como ${selectedBook.categoria || 'Geral'}, continua a ser uma referência essencial na literatura.`}</p>
                 </div>
 
-                <div className="details-actions">
+                <div className="details-actions-bar" style={{ display: 'flex', gap: '1rem', marginTop: '2rem', flexWrap: 'wrap' }}>
                   {enabledFeatures.includes('emprestimo-service') && (
-                    <button className="btn-action btn-borrow" onClick={() => showToast('Solicitação de empréstimo iniciada!')}>
-                      {Icons.bookOpen} Solicitar Empréstimo
+                    <>
+                      {myLoan && myLoan.book_id === selectedBook.id ? (
+                        <button className="btn-action btn-return" onClick={() => handleReturn(selectedBook.id)} style={{ background: '#dc2626', color: 'white', borderColor: '#b91c1c' }}>
+                          {Icons.bookOpen} Devolver Livro
+                        </button>
+                      ) : borrowedBooks.includes(selectedBook.id) ? (
+                        <button className="btn-action btn-unavailable" disabled>
+                          {Icons.lock} Indisponível
+                        </button>
+                      ) : (
+                        <button className="btn-action btn-borrow" onClick={() => handleBorrow(selectedBook.id)}>
+                          {Icons.bookOpen} Solicitar Empréstimo
+                        </button>
+                      )}
+                    </>
+                  )}
+                  {isLoggedIn && enabledFeatures.includes('auth-service') && (
+                    <button 
+                      className={`btn-action btn-outline ${favorites.includes(selectedBook.id) ? 'active' : ''}`}
+                      onClick={(e) => { e.stopPropagation(); toggleFavorite(selectedBook.id); }}
+                    >
+                      {favorites.includes(selectedBook.id) ? Icons.heartFilled : Icons.heart} 
+                      {favorites.includes(selectedBook.id) ? 'Remover dos Favoritos' : 'Favoritar'}
                     </button>
                   )}
-                  {enabledFeatures.includes('avaliacao-service') && (
-                    <button className="btn-action btn-favorite" onClick={() => showToast('Sistema de avaliação aberto!')}>
-                      ★ Avaliar Obra
+                  {isLoggedIn && enabledFeatures.includes('auth-service') && (
+                    <button 
+                      className={`btn-action btn-outline ${myCollections.some(c => c.books.includes(selectedBook.id)) ? 'active' : ''}`}
+                      onClick={(e) => { e.stopPropagation(); setBookToCollect(selectedBook.id); }}
+                    >
+                      {Icons.folder} Adicionar à Coleção
                     </button>
                   )}
                 </div>
               </div>
             </article>
+
+            {enabledFeatures.includes('avaliacao-service') && (
+              <section className="avaliacoes-section mt-4" style={{ marginTop: '3rem', borderTop: '1px solid #e2e8f0', paddingTop: '2rem' }}>
+                <div style={{display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: '1.5rem'}}>
+                  <h3 style={{margin: 0}}>Avaliações</h3>
+                  <div className="badge-review">
+                    <span style={{color: '#fbbf24'}}>{Icons.starFilled}</span>
+                    <strong>{mediaLivro.media ? mediaLivro.media.toFixed(1) : '0.0'}</strong>
+                    <span style={{color: '#64748b', fontSize: '0.9rem'}}>({mediaLivro.total || 0} avaliações)</span>
+                  </div>
+                </div>
+                {isLoggedIn && (
+                  <div className="avaliacao-form" style={{ background: '#f1f5f9', padding: '1.5rem', borderRadius: '12px', marginBottom: '2rem' }}>
+                    <h4 style={{marginBottom: '1rem'}}>Deixe sua avaliação</h4>
+                    <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1rem' }}>
+                      {[1,2,3,4,5].map(n => (
+                        <button 
+                          type="button"
+                          key={n} 
+                          className="btn-icon"
+                          style={{color: (hoverNota || minhaAvaliacao.nota) >= n ? '#fbbf24' : '#cbd5e1', cursor: 'pointer', padding: 0, border: 'none', background: 'transparent'}}
+                          onClick={(e) => { e.preventDefault(); setMinhaAvaliacao({...minhaAvaliacao, nota: n}); }}
+                          onMouseEnter={() => setHoverNota(n)}
+                          onMouseLeave={() => setHoverNota(0)}
+                        >
+                          {Icons.starFilled}
+                        </button>
+                      ))}
+                    </div>
+                    <textarea 
+                      placeholder="Conte-nos o que achou da leitura..." 
+                      value={minhaAvaliacao.comentario} 
+                      onChange={e => setMinhaAvaliacao({...minhaAvaliacao, comentario: e.target.value})}
+                      style={{ width: '100%', padding: '0.75rem', borderRadius: '8px', border: '1px solid #cbd5e1', minHeight: '80px', fontFamily: 'inherit', marginBottom: '1rem', resize: 'vertical' }}
+                    />
+                    <button className="btn-action" onClick={() => submitAvaliacao(selectedBook.id)}>Enviar Avaliação</button>
+                  </div>
+                )}
+                <div className="avaliacoes-list" style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                  {avaliacoes.length === 0 ? (
+                    <p style={{color: '#64748b'}}>Nenhuma avaliação para este livro ainda.</p>
+                  ) : avaliacoes.map(av => (
+                    <div key={av.id} className="avaliacao-card" style={{ background: '#fff', border: '1px solid #e2e8f0', padding: '1.25rem', borderRadius: '12px' }}>
+                      <div className="avaliacao-header" style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem', alignItems: 'center' }}>
+                        <div style={{display: 'flex', alignItems: 'center', gap: '0.5rem'}}>
+                          <div style={{width: '32px', height: '32px', borderRadius: '50%', background: '#e2e8f0', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#64748b'}}>
+                            {Icons.user}
+                          </div>
+                          <strong>{av.username}</strong>
+                        </div>
+                        <div style={{ display: 'flex', color: '#fbbf24', gap: '2px' }}>
+                          {[...Array(5)].map((_, i) => (
+                            <span key={i} style={{color: i < av.nota ? '#fbbf24' : '#cbd5e1'}}>{Icons.starFilled}</span>
+                          ))}
+                        </div>
+                      </div>
+                      <p style={{ margin: '0.5rem 0 0 0', fontSize: '0.95rem', color: '#334155', lineHeight: '1.5' }}>{av.comentario}</p>
+                      <small style={{ color: '#94a3b8', display: 'block', marginTop: '0.75rem' }}>{new Date(av.created_at).toLocaleDateString()}</small>
+                    </div>
+                  ))}
+                </div>
+              </section>
+            )}
           </div>
         </main>
       ) : view === 'login' ? (
         <main className="login-wrapper fade-in">
           <div className="login-card animate-pop">
             <div className="login-header">
-              <div className="icon-badge">
-                {Icons.shield}
-              </div>
-              <h2>Painel de Controle</h2>
-              <p>Autenticação do Administrador</p>
+              <div className="icon-badge">{Icons.shield}</div>
+              <h2>Entrar</h2>
+              <p>Acesse sua conta</p>
             </div>
             <form onSubmit={handleLogin} className="login-form">
               <div className="input-group">
-                <label>Usuário de Acesso</label>
-                <input
-                  type="text"
-                  placeholder="Nome de usuário"
-                  value={loginUser}
-                  onChange={e => setLoginUser(e.target.value)}
-                  required
-                />
+                <label>Nome ou E-mail</label>
+                <input type="text" value={loginUser} onChange={e => setLoginUser(e.target.value)} required />
               </div>
               <div className="input-group">
-                <label>Sua Senha</label>
-                <input
-                  type="password"
-                  placeholder="••••••••"
-                  value={loginPass}
-                  onChange={e => setLoginPass(e.target.value)}
-                  required
-                />
+                <label>Senha</label>
+                <input type="password" value={loginPass} onChange={e => setLoginPass(e.target.value)} required />
               </div>
-              <button type="submit" className="btn-login-submit">Entrar no Sistema</button>
-              <button type="button" className="btn-link" onClick={() => setView('landing')} aria-label="Voltar para a biblioteca">
-                ← Voltar para a biblioteca
-              </button>
+              <button type="submit" className="btn-login-submit">Entrar</button>
+              {enabledFeatures.includes('auth-service') && (
+                <button type="button" className="btn-link" onClick={() => setView('register')}>Não tem conta? Cadastre-se</button>
+              )}
             </form>
+          </div>
+        </main>
+      ) : view === 'register' ? (
+        <main className="login-wrapper fade-in">
+          <div className="login-card animate-pop">
+            <div className="login-header">
+              <h2>Cadastre-se</h2>
+            </div>
+            <form onSubmit={handleRegister} className="login-form">
+              <div className="input-group">
+                <label>Nome de usuário</label>
+                <input type="text" value={regUser} onChange={e => setRegUser(e.target.value)} required />
+              </div>
+              <div className="input-group">
+                <label>E-mail</label>
+                <input type="email" value={regEmail} onChange={e => setRegEmail(e.target.value)} required />
+              </div>
+              <div className="input-group">
+                <label>Senha</label>
+                <input type="password" value={regPass} onChange={e => setRegPass(e.target.value)} required />
+              </div>
+              <div className="input-group">
+                <label>Confirmar Senha</label>
+                <input type="password" value={regConfirm} onChange={e => setRegConfirm(e.target.value)} required />
+              </div>
+              <button type="submit" className="btn-login-submit">Criar Conta</button>
+              <button type="button" className="btn-link" onClick={() => setView('login')}>Já tem conta? Entre</button>
+            </form>
+          </div>
+        </main>
+      ) : view === 'my-loan' ? (
+        <main className="fade-in padding-main">
+          <div className="content">
+            <section className="section-header">
+              <h2>Meus Empréstimos</h2>
+              <div className="title-underline"></div>
+            </section>
+            
+            {!myLoan ? (
+              <div className="empty-state">
+                <div className="empty-icon">{Icons.bookOpen}</div>
+                <h3>Nenhum livro emprestado no momento</h3>
+                <p>Você pode pegar até 1 livro emprestado de cada vez.</p>
+                <button className="btn-cancel" style={{marginTop: '1.5rem'}} onClick={() => setView('landing')}>Explorar Catálogo</button>
+              </div>
+            ) : (
+              <div className="book-grid" aria-live="polite">
+                {livros.filter(l => l.id === myLoan.book_id).map(livro => (
+                  <article 
+                    key={livro.id} 
+                    className="book-card"
+                    role="button"
+                    tabIndex="0"
+                    onClick={() => { openBookDetails(livro); }}
+                  >
+                    <div className="book-cover" style={{ background: livro.capa_url ? `url("http://localhost:8080/catalogo-service${livro.capa_url}") center/cover` : getCoverGradient(livro.titulo) }}>
+                      {!livro.capa_url && (
+                        <div className="cover-design">
+                          <span className="cover-title-small">{livro.titulo}</span>
+                        </div>
+                      )}
+                      <div className="badge-borrowed-by-me">Seu Empréstimo</div>
+                    </div>
+                    <div className="book-info">
+                      <span className="book-category">{livro.categoria || 'Geral'}</span>
+                      <h3 className="book-title">{livro.titulo}</h3>
+                      <p className="book-author">{livro.autor}</p>
+                      <button className="btn-action btn-return" style={{marginTop: '1rem', width: '100%'}} onClick={(e) => { e.stopPropagation(); handleReturn(livro.id); }}>Devolver Livro</button>
+                    </div>
+                  </article>
+                ))}
+              </div>
+            )}
+          </div>
+        </main>
+      ) : view === 'favorites' ? (
+        <main className="fade-in padding-main">
+          <div className="content">
+            <section className="section-header">
+              <h2>Meus Favoritos</h2>
+              <div className="title-underline"></div>
+            </section>
+            {livros.filter(l => favorites.includes(l.id)).length === 0 ? (
+              <div className="empty-state">
+                <div className="empty-icon">{Icons.heart}</div>
+                <h3>Nenhum favorito ainda</h3>
+                <p>Explore o catálogo e favorite os livros que você mais gosta!</p>
+                <button className="btn-cancel" style={{marginTop: '1.5rem'}} onClick={() => setView('landing')}>Explorar Catálogo</button>
+              </div>
+            ) : (
+              <div className="book-grid" aria-live="polite">
+                {livros.filter(l => favorites.includes(l.id)).map(livro => (
+                  <article 
+                    key={livro.id} 
+                    className="book-card"
+                    role="button"
+                    tabIndex="0"
+                    onClick={() => { openBookDetails(livro); }}
+                  >
+                    <div className="book-cover" style={{ background: livro.capa_url ? `url("http://localhost:8080/catalogo-service${livro.capa_url}") center/cover` : getCoverGradient(livro.titulo) }}>
+                      {!livro.capa_url && (
+                        <div className="cover-design">
+                          <span className="cover-title-small">{livro.titulo}</span>
+                        </div>
+                      )}
+                      {enabledFeatures.includes('emprestimo-service') && borrowedBooks.includes(livro.id) && (
+                        <div className="badge-unavailable">Indisponível</div>
+                      )}
+                      <div className="card-actions-corner" onClick={e => e.stopPropagation()}>
+                        <button 
+                          className={`btn-icon btn-corner-action active heart-beat`}
+                          onClick={(e) => { e.stopPropagation(); toggleFavorite(livro.id); }}
+                          title="Remover dos Favoritos"
+                        >
+                          {Icons.heartFilled}
+                        </button>
+                        <button 
+                          className={`btn-icon btn-corner-action ${myCollections.some(c => c.books.includes(livro.id)) ? 'active' : ''}`}
+                          onClick={(e) => { e.stopPropagation(); setBookToCollect(livro.id); }}
+                          title="Adicionar à Coleção"
+                        >
+                          {Icons.folder}
+                        </button>
+                      </div>
+                    </div>
+                    <div className="book-info">
+                      <span className="book-category">{livro.categoria || 'Geral'}</span>
+                      <h3 className="book-title">{livro.titulo}</h3>
+                      <p className="book-author">{livro.autor}</p>
+                      <div className="book-meta" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <div>
+                          {livro.ano && <span className="meta-pill">{livro.ano}</span>}
+                          {livro.tipo_edicao && <span className="meta-pill">{livro.tipo_edicao}</span>}
+                        </div>
+                      </div>
+                    </div>
+                  </article>
+                ))}
+              </div>
+            )}
+          </div>
+        </main>
+      ) : view === 'collections' ? (
+        <main className="fade-in padding-main">
+          <div className="content">
+            <section className="section-header">
+              <h2>Coleções</h2>
+              <div className="title-underline"></div>
+            </section>
+
+            <div className="tabs-container">
+              <button className={`tab-btn ${collectionTab === 'mine' ? 'active' : ''}`} onClick={() => { setCollectionTab('mine'); setColSearch(''); }}>
+                {Icons.folder} Minhas Coleções
+              </button>
+              <button className={`tab-btn ${collectionTab === 'public' ? 'active' : ''}`} onClick={() => { setCollectionTab('public'); setColSearch(''); }}>
+                {Icons.globe} Coleções Públicas
+              </button>
+            </div>
+
+            {collectionTab === 'mine' ? (
+              <>
+                <div className="collection-grid">
+                  <article className="collection-card ghost-card" onClick={() => setShowColModal(true)}>
+                    <div className="ghost-content">
+                      <div className="ghost-icon">{Icons.plus}</div>
+                      <p>Nova Coleção</p>
+                    </div>
+                  </article>
+                  {myCollections.map(c => (
+                    <article key={c.id} className="collection-card" onClick={() => { setSelectedCollection(c); setView('collection-details'); }}>
+                      <div className="col-card-header">
+                        <span className="col-card-icon">{c.is_public ? Icons.globe : Icons.lock}</span>
+                        <span className="col-card-count">{c.books.length} livros</span>
+                      </div>
+                      <h3 className="col-card-name">{c.name}</h3>
+                      {c.description && <p className="col-card-desc">{c.description}</p>}
+                      <div className="col-card-footer">
+                        <span className="col-card-visibility">{c.is_public ? 'Pública' : 'Privada'}</span>
+                      </div>
+                    </article>
+                  ))}
+                </div>
+                {myCollections.length === 0 && (
+                  <div className="empty-state" style={{marginTop: '2rem'}}>
+                    <div className="empty-icon">{Icons.folder}</div>
+                    <h3>Nenhuma coleção criada</h3>
+                    <p>Crie sua primeira coleção para organizar seus livros favoritos!</p>
+                  </div>
+                )}
+              </>
+            ) : (
+              <>
+                <div className="search-pill" style={{marginBottom: '2rem', maxWidth: '500px'}}>
+                  <div className="search-icon">{Icons.search}</div>
+                  <input
+                    type="text"
+                    placeholder="Buscar coleções públicas..."
+                    value={colSearch}
+                    onChange={(e) => setColSearch(e.target.value)}
+                  />
+                  {colSearch && (
+                    <button className="btn-clear-search" onClick={() => setColSearch('')}>{Icons.x}</button>
+                  )}
+                </div>
+                <div className="collection-grid">
+                  {(colSearch.length >= 3 ? publicCollections.filter(c => c.name.toLowerCase().includes(colSearch.toLowerCase())) : publicCollections).map(c => (
+                    <article key={c.id} className="collection-card" onClick={() => { setSelectedCollection(c); setView('collection-details'); }}>
+                      <div className="col-card-header">
+                        <span className="col-card-icon">{Icons.globe}</span>
+                        <span className="col-card-count">{c.books.length} livros</span>
+                      </div>
+                      <h3 className="col-card-name">{c.name}</h3>
+                      {c.description && <p className="col-card-desc">{c.description}</p>}
+                      <div className="col-card-footer">
+                        <span className="col-card-owner">por {c.owner_name}</span>
+                      </div>
+                    </article>
+                  ))}
+                </div>
+                {publicCollections.length === 0 && (
+                  <div className="empty-state" style={{marginTop: '2rem'}}>
+                    <div className="empty-icon">{Icons.globe}</div>
+                    <h3>Nenhuma coleção pública</h3>
+                    <p>Ainda não há coleções públicas disponíveis.</p>
+                  </div>
+                )}
+              </>
+            )}
+          </div>
+        </main>
+      ) : view === 'collection-details' && selectedCollection ? (
+        <main className="fade-in padding-main">
+          <div className="content collection-details-content">
+            <button className="btn-back" onClick={() => setView('collections')} aria-label="Voltar para coleções">
+              ← Voltar para Coleções
+            </button>
+            
+            <section className="col-details-header">
+              <div className="col-details-info">
+                <h2>{selectedCollection.name}</h2>
+                {selectedCollection.description && <p className="col-desc">{selectedCollection.description}</p>}
+                <div className="col-meta">
+                  <span className="meta-tag">{selectedCollection.is_public ? Icons.globe : Icons.lock} {selectedCollection.is_public ? 'Pública' : 'Privada'}</span>
+                  <span className="meta-tag">{Icons.book} {selectedCollection.books.length} livros</span>
+                  <span className="meta-tag">{Icons.users} por {selectedCollection.owner_name || user?.username}</span>
+                </div>
+              </div>
+              
+              {user && selectedCollection.owner_id === user.id && (
+                <div className="col-details-actions">
+                  <button className="btn-add-mini" onClick={() => setShowAddBookToColModal(true)}>
+                    {Icons.plus} Adicionar Livro
+                  </button>
+                </div>
+              )}
+            </section>
+            
+            {selectedCollection.books.length === 0 ? (
+              <div className="empty-state">
+                <div className="empty-icon">{Icons.bookOpen}</div>
+                {user && selectedCollection.owner_id === user.id ? (
+                  <>
+                    <h3>Sua coleção está vazia</h3>
+                    <p>Comece a adicionar livros agora mesmo!</p>
+                    <button className="btn-add-mini" style={{marginTop: '1rem'}} onClick={() => setShowAddBookToColModal(true)}>
+                      {Icons.plus} Adicionar Primeiro Livro
+                    </button>
+                  </>
+                ) : (
+                  <>
+                    <h3>Esta coleção está vazia</h3>
+                    <p>O criador ainda não adicionou nenhum livro.</p>
+                  </>
+                )}
+              </div>
+            ) : (
+              <div className="book-grid" aria-live="polite">
+                {livros.filter(l => selectedCollection.books.includes(l.id)).map(livro => (
+                  <article 
+                    key={livro.id} 
+                    className="book-card"
+                    role="button"
+                    tabIndex="0"
+                    onClick={() => { openBookDetails(livro); }}
+                  >
+                    <div className="book-cover" style={{ background: livro.capa_url ? `url("http://localhost:8080/catalogo-service${livro.capa_url}") center/cover` : getCoverGradient(livro.titulo) }}>
+                      {!livro.capa_url && (
+                        <div className="cover-design">
+                          <span className="cover-title-small">{livro.titulo}</span>
+                        </div>
+                      )}
+                      {enabledFeatures.includes('emprestimo-service') && borrowedBooks.includes(livro.id) && (
+                        <div className="badge-unavailable">Indisponível</div>
+                      )}
+                      {user && selectedCollection.owner_id === user.id && (
+                        <button 
+                          className="btn-icon btn-favorite-corner delete-hover"
+                          onClick={(e) => { e.stopPropagation(); removeBookFromCollection(selectedCollection.id, livro.id); }}
+                          title="Remover da Coleção"
+                        >
+                          {Icons.trash}
+                        </button>
+                      )}
+                    </div>
+                    <div className="book-info">
+                      <span className="book-category">{livro.categoria || 'Geral'}</span>
+                      <h3 className="book-title">{livro.titulo}</h3>
+                      <p className="book-author">{livro.autor}</p>
+                    </div>
+                  </article>
+                ))}
+              </div>
+            )}
+          </div>
+        </main>
+      ) : view === 'multas' ? (
+        <main className="fade-in padding-main">
+          <div className="content">
+            <section className="section-header"><h2>Multas e Pendências</h2><div className="title-underline"></div></section>
+            {isAdmin && multasSummary && (
+              <div className="stats-grid" style={{marginBottom: '2rem'}}>
+                <div className="stat-card">
+                  <div className="stat-icon" style={{background: '#dcfce7', color: '#16a34a'}}>{Icons.dollar}</div>
+                  <div className="stat-info"><h3>Total Recebido</h3><p style={{color: '#16a34a'}}>R$ {multasSummary.pagas?.valor_total?.toFixed(2) || '0.00'}</p></div>
+                </div>
+                <div className="stat-card">
+                  <div className="stat-icon" style={{background: '#fee2e2', color: '#dc2626'}}>{Icons.dollar}</div>
+                  <div className="stat-info"><h3>Total Pendente</h3><p style={{color: '#dc2626'}}>R$ {multasSummary.pendentes?.valor_total?.toFixed(2) || '0.00'}</p></div>
+                </div>
+              </div>
+            )}
+            {multas.length === 0 ? (
+              <div className="empty-state">
+                <div className="empty-icon">{Icons.check}</div>
+                <h3>Tudo certo!</h3>
+                <p>Nenhuma multa registrada no momento.</p>
+              </div>
+            ) : (
+              <div className="table-responsive">
+                <table className="admin-table">
+                  <thead><tr><th>Motivo</th><th>Valor</th><th>Status</th><th>Ação</th></tr></thead>
+                  <tbody>
+                    {multas.map(m => (
+                      <tr key={m.id}>
+                        <td>{m.motivo}</td>
+                        <td style={{fontWeight: 'bold'}}>R$ {m.valor.toFixed(2)}</td>
+                        <td><span className={`status-badge ${m.status === 'pendente' ? 'unavailable' : 'available'}`}>{m.status.toUpperCase()}</span></td>
+                        <td>{m.status === 'pendente' && <button className="btn-action" onClick={() => payMulta(m.id)}>Pagar Multa</button>}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        </main>
+      ) : view === 'notificacoes' ? (
+        <main className="fade-in padding-main">
+          <div className="content">
+            <section className="section-header">
+              <h2>Notificações</h2>
+              <div className="title-underline"></div>
+            </section>
+            <div style={{marginBottom: '1.5rem'}}>
+              <button className="btn-action btn-outline" onClick={markAllNotifRead}>Marcar Todas como Lidas</button>
+            </div>
+            {notificacoes.length === 0 ? (
+              <div className="empty-state">
+                <div className="empty-icon">{Icons.bell}</div>
+                <h3>Sem notificações</h3>
+                <p>Você não tem nenhuma notificação no momento.</p>
+              </div>
+            ) : (
+              <div className="notificacoes-list" style={{display: 'flex', flexDirection: 'column', gap: '1rem'}}>
+                {notificacoes.map(n => (
+                  <div key={n.id} className="notificacao-card" style={{padding: '1.5rem', borderRadius: '8px', border: n.lida ? '1px solid #e2e8f0' : '2px solid #3b82f6', background: n.lida ? '#f8fafc' : '#fff', boxShadow: '0 2px 4px rgba(0,0,0,0.05)'}}>
+                    <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '0.5rem'}}>
+                      <strong style={{fontSize: '1.1rem', color: '#1e293b'}}>{n.titulo}</strong>
+                      <small style={{color: '#64748b'}}>{new Date(n.created_at).toLocaleString()}</small>
+                    </div>
+                    <p style={{margin: '0.5rem 0', color: '#334155', lineHeight: '1.5'}}>{n.mensagem}</p>
+                    {!n.lida && <button className="btn-link" style={{padding: 0, marginTop: '0.5rem'}} onClick={() => markNotifRead(n.id)}>Marcar como lida</button>}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </main>
+      ) : view === 'estatisticas' ? (
+        <Estatisticas estatisticas={estatisticas} />
+      ) : view === 'admin-panel' ? (
+        <main className="fade-in padding-main">
+          <div className="content">
+            <section className="section-header">
+              <h2>Painel Administrativo</h2>
+              <div className="title-underline"></div>
+            </section>
+              <div className="admin-tabs">
+                <button className={`admin-tab-btn ${adminTab === 'users' ? 'active' : ''}`} onClick={() => setAdminTab('users')}>Usuários</button>
+                {enabledFeatures.includes('emprestimo-service') && (
+                  <button className={`admin-tab-btn ${adminTab === 'loans' ? 'active' : ''}`} onClick={() => setAdminTab('loans')}>Empréstimos</button>
+                )}
+                {enabledFeatures.includes('notificacao-service') && (
+                  <button className={`admin-tab-btn ${adminTab === 'notifications' ? 'active' : ''}`} onClick={() => setAdminTab('notifications')}>Enviar Notificação</button>
+                )}
+              </div>
+            
+            {adminTab === 'users' ? (
+              <div className="table-responsive">
+                <table className="admin-table">
+                  <thead>
+                    <tr><th>ID</th><th>Nome</th><th>Email</th><th>Role</th><th>Ações</th></tr>
+                  </thead>
+                  <tbody>
+                    {usersList.map(u => (
+                      <tr key={u.id}>
+                        <td>{u.id}</td>
+                        <td>{u.username}</td>
+                        <td>{u.email}</td>
+                        <td><span className={`role-badge ${u.role}`}>{u.role}</span></td>
+                        <td>
+                          {u.role === 'user' ? (
+                            <button className="btn-action btn-sm" onClick={() => changeUserRole(u.id, 'admin')}>Promover a Admin</button>
+                          ) : user && u.id === user.id ? (
+                            usersList.filter(x => x.role === 'admin').length > 1 ? (
+                              <button className="btn-action btn-sm btn-outline" onClick={() => changeUserRole(u.id, 'user')}>Rebaixar</button>
+                            ) : (
+                              <button className="btn-action btn-sm btn-outline" disabled style={{opacity: 0.5, cursor: 'not-allowed'}} title="Você é o único admin">Rebaixar</button>
+                            )
+                          ) : (
+                            <button className="btn-action btn-sm btn-outline" onClick={() => changeUserRole(u.id, 'user')}>Rebaixar</button>
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            ) : adminTab === 'loans' ? (
+              <div className="table-responsive">
+                <table className="admin-table">
+                  <thead>
+                    <tr><th>ID</th><th>Usuário</th><th>Livro</th><th>Data</th><th>Ação</th></tr>
+                  </thead>
+                  <tbody>
+                    {allLoans.length === 0 ? (
+                      <tr><td colSpan="5" style={{textAlign: 'center', padding: '2rem'}}>Nenhum empréstimo ativo.</td></tr>
+                    ) : allLoans.map(l => (
+                      <tr key={l.id}>
+                        <td>{l.id}</td>
+                        <td>{l.username} <br/><small style={{opacity:0.7}}>{l.email}</small></td>
+                        <td>{l.titulo}</td>
+                        <td>{new Date(l.data_emprestimo).toLocaleDateString()}</td>
+                        <td>
+                          <button className="btn-action btn-sm btn-outline" onClick={() => handleReturn(l.book_id)}>Forçar Devolução</button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            ) : adminTab === 'notifications' ? (
+              <div className="card">
+                <h3>Disparar Notificação</h3>
+                <form onSubmit={sendAdminNotif} style={{display: 'flex', flexDirection: 'column', gap: '1rem', marginTop: '1rem'}}>
+                  <div className="input-group">
+                    <label>Tipo de Envio</label>
+                    <select value={adminNotif.tipo_envio} onChange={e => setAdminNotif({...adminNotif, tipo_envio: e.target.value})} style={{padding: '0.5rem'}}>
+                      <option value="broadcast">Para Todos os Usuários (Broadcast)</option>
+                      <option value="direto">Para Usuário Específico</option>
+                    </select>
+                  </div>
+                  {adminNotif.tipo_envio === 'direto' && (
+                    <div className="input-group">
+                      <label>Destinatário (Nome ou ID)</label>
+                      <input 
+                        type="text" 
+                        required 
+                        list="users-datalist"
+                        placeholder="Ex: admin"
+                        value={adminNotif.user_id} 
+                        onChange={e => setAdminNotif({...adminNotif, user_id: e.target.value})} 
+                        style={{padding: '0.8rem 1rem'}} 
+                      />
+                      <datalist id="users-datalist">
+                        {usersList.map(u => (
+                          <option key={u.id} value={u.username}>ID: {u.id} - {u.email}</option>
+                        ))}
+                      </datalist>
+                    </div>
+                  )}
+                  <div className="input-group">
+                    <label>Título</label>
+                    <input type="text" required value={adminNotif.titulo} onChange={e => setAdminNotif({...adminNotif, titulo: e.target.value})} style={{padding: '0.5rem'}} />
+                  </div>
+                  <div className="input-group">
+                    <label>Mensagem</label>
+                    <textarea required value={adminNotif.mensagem} onChange={e => setAdminNotif({...adminNotif, mensagem: e.target.value})} style={{padding: '0.5rem', minHeight: '80px'}} />
+                  </div>
+                  <div className="input-group">
+                    <label>Estilo (Tipo)</label>
+                    <select value={adminNotif.tipo_msg} onChange={e => setAdminNotif({...adminNotif, tipo_msg: e.target.value})} style={{padding: '0.5rem'}}>
+                      <option value="info">Informação (Azul)</option>
+                      <option value="alerta">Alerta (Vermelho)</option>
+                      <option value="sucesso">Sucesso (Verde)</option>
+                    </select>
+                  </div>
+                  <button type="submit" className="btn-save">Enviar</button>
+                </form>
+              </div>
+            ) : null}
           </div>
         </main>
 
@@ -486,7 +1775,7 @@ function App() {
                   </button>
                 )}
               </div>
-              {isLoggedIn && (
+              {isAdmin && (
                 <button className="btn-add-mini" onClick={() => setShowAddModal(true)}>
                   {Icons.plus}
                   <span>Novo Livro</span>
@@ -501,6 +1790,41 @@ function App() {
               <h2>{busca ? `Resultados para "${busca}"` : 'Acervo Disponível'}</h2>
               <div className="title-underline"></div>
             </section>
+
+            {enabledFeatures.includes('busca-service') && (
+              <div className="filters-container" style={{ background: '#f8fafc', padding: '1rem', borderRadius: '12px', marginBottom: '2rem', display: 'flex', gap: '1.5rem', flexWrap: 'wrap', alignItems: 'flex-end', border: '1px solid #e2e8f0' }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem', flex: '1', minWidth: '200px' }}>
+                  <label style={{ fontSize: '0.85rem', fontWeight: 'bold', color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Categoria</label>
+                  <select 
+                    value={categoriaFilter} 
+                    onChange={e => { setCategoriaFilter(e.target.value); setPagination({...pagination, page: 1}); }}
+                    style={{ padding: '0.75rem', borderRadius: '8px', border: '1px solid #cbd5e1', outline: 'none', background: '#fff', cursor: 'pointer' }}
+                  >
+                    <option value="">Todas as Categorias</option>
+                    {categoriasLista.map(c => <option key={c} value={c}>{c}</option>)}
+                  </select>
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem', flex: '1', minWidth: '150px' }}>
+                  <label style={{ fontSize: '0.85rem', fontWeight: 'bold', color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Publicado após (Ano)</label>
+                  <input 
+                    type="number" 
+                    placeholder="Ex: 2000" 
+                    value={anoFilter} 
+                    onChange={e => { setAnoFilter(e.target.value); setPagination({...pagination, page: 1}); }}
+                    style={{ padding: '0.75rem', borderRadius: '8px', border: '1px solid #cbd5e1', background: '#fff' }}
+                  />
+                </div>
+                {(categoriaFilter || anoFilter) && (
+                  <button 
+                    className="btn-action btn-outline" 
+                    onClick={() => { setCategoriaFilter(''); setAnoFilter(''); setPagination({...pagination, page: 1}); }}
+                    style={{ padding: '0.75rem 1.5rem', height: '46px' }}
+                  >
+                    Limpar Filtros
+                  </button>
+                )}
+              </div>
+            )}
 
             <section className="catalog-section">
               {loading ? (
@@ -519,14 +1843,14 @@ function App() {
                 </div>
               ) : (
                 <div className="book-grid" aria-live="polite">
-                  {/* Auth Ghost Card */}
-                  {!isLoggedIn && (
+                  {/* Admin Ghost Card */}
+                  {!isAdmin && (
                     <article className="book-card ghost-card" onClick={() => setView('login')} aria-label="Área do Administrador">
                       <div className="ghost-content">
                         <div className="ghost-icon">
-                          {Icons.plus}
+                          {Icons.shield}
                         </div>
-                        <p>Novo Título</p>
+                        <p>Entrar como Admin</p>
                       </div>
                     </article>
                   )}
@@ -538,8 +1862,8 @@ function App() {
                       role="button"
                       tabIndex="0"
                       aria-label={`Ver detalhes do livro ${livro.titulo}`}
-                      onClick={() => { setSelectedBook(livro); setView('book-details'); }}
-                      onKeyDown={(e) => { if(e.key === 'Enter') { setSelectedBook(livro); setView('book-details'); } }}
+                      onClick={() => { openBookDetails(livro); }}
+                      onKeyDown={(e) => { if(e.key === 'Enter') { openBookDetails(livro); } }}
                     >
                       <div className="book-cover" style={{ background: livro.capa_url ? `url("http://localhost:8080/catalogo-service${livro.capa_url}") center/cover` : getCoverGradient(livro.titulo) }}>
                         {!livro.capa_url && (
@@ -547,20 +1871,62 @@ function App() {
                             <span className="cover-title-small">{livro.titulo}</span>
                           </div>
                         )}
+                        {enabledFeatures.includes('emprestimo-service') && borrowedBooks.includes(livro.id) && (
+                          <div className="badge-unavailable">Indisponível</div>
+                        )}
+                        {isLoggedIn && enabledFeatures.includes('auth-service') && (
+                          <div className="card-actions-corner" onClick={e => e.stopPropagation()}>
+                            <button 
+                              className={`btn-icon btn-corner-action ${favorites.includes(livro.id) ? 'active heart-beat' : ''}`}
+                              onClick={(e) => { e.stopPropagation(); toggleFavorite(livro.id); }}
+                              title="Favoritar"
+                            >
+                              {favorites.includes(livro.id) ? Icons.heartFilled : Icons.heart}
+                            </button>
+                            <button 
+                              className={`btn-icon btn-corner-action ${myCollections.some(c => c.books.includes(livro.id)) ? 'active' : ''}`}
+                              onClick={(e) => { e.stopPropagation(); setBookToCollect(livro.id); }}
+                              title="Adicionar à Coleção"
+                            >
+                              {Icons.folder}
+                            </button>
+                          </div>
+                        )}
                       </div>
                       <div className="book-info">
                         <span className="book-category">{livro.categoria || 'Geral'}</span>
                         <h3 className="book-title">{livro.titulo}</h3>
                         <p className="book-author">{livro.autor}</p>
-                        <div className="book-meta">
-                          <span className="year">
-                            {Icons.calendar}
-                            {livro.ano || 'N/A'}
-                          </span>
+                        <div className="book-meta" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                          <div>
+                            {livro.ano && <span className="meta-pill">{livro.ano}</span>}
+                            {livro.tipo_edicao && <span className="meta-pill">{livro.tipo_edicao}</span>}
+                          </div>
                         </div>
                       </div>
                     </article>
                   ))}
+                </div>
+              )}
+              {pagination.pages > 1 && (
+                <div className="pagination" style={{ display: 'flex', justifyContent: 'center', gap: '1rem', marginTop: '3rem' }}>
+                  <button 
+                    className="btn-action btn-outline" 
+                    disabled={pagination.page <= 1} 
+                    onClick={() => setPagination({...pagination, page: pagination.page - 1})}
+                  >
+                    Anterior
+                  </button>
+                  <span style={{ display: 'flex', alignItems: 'center', fontWeight: 'bold' }}>
+                    Página {pagination.page} de {pagination.pages}
+                  </span>
+                  <button 
+                    className="btn-action btn-outline" 
+                    disabled={pagination.page >= pagination.pages} 
+                    onClick={() => setPagination({...pagination, page: pagination.page + 1})}
+                  >
+                    Próxima
+                  </button>
                 </div>
               )}
             </section>
@@ -717,6 +2083,158 @@ function App() {
           </div>
         </div>
       </footer>
+      {/* Modal Adicionar Livro na Coleção */}
+      {showAddBookToColModal && selectedCollection && (
+        <div className="modal-overlay fade-in" onClick={() => setShowAddBookToColModal(false)}>
+          <div className="modal-content col-modal animate-pop" onClick={e => e.stopPropagation()}>
+            <div className="col-modal-header">
+              <div className="col-modal-icon">{Icons.search}</div>
+              <h2>Adicionar à Coleção</h2>
+              <p>Busque livros do catálogo para adicionar a "{selectedCollection.name}"</p>
+              <button className="btn-close" onClick={() => setShowAddBookToColModal(false)} aria-label="Fechar">{Icons.x}</button>
+            </div>
+            <div className="col-modal-body">
+              <div className="search-pill" style={{marginBottom: '1.5rem', width: '100%', maxWidth: '100%'}}>
+                <div className="search-icon">{Icons.search}</div>
+                <input
+                  type="text"
+                  placeholder="Pesquisar no catálogo..."
+                  value={addBookColSearch}
+                  onChange={(e) => setAddBookColSearch(e.target.value)}
+                  autoFocus
+                />
+              </div>
+              <div className="add-book-list">
+                {livros
+                  .filter(l => !selectedCollection.books.includes(l.id))
+                  .filter(l => addBookColSearch.length < 2 || l.titulo.toLowerCase().includes(addBookColSearch.toLowerCase()) || l.autor.toLowerCase().includes(addBookColSearch.toLowerCase()))
+                  .slice(0, 5)
+                  .map(livro => (
+                    <div key={livro.id} className="add-book-item">
+                      <div className="add-book-thumb" style={{ background: livro.capa_url ? `url("http://localhost:8080/catalogo-service${livro.capa_url}") center/cover` : getCoverGradient(livro.titulo) }}>
+                        {!livro.capa_url && <span className="thumb-initial">{livro.titulo.charAt(0)}</span>}
+                      </div>
+                      <div className="add-book-item-info">
+                        <strong>{livro.titulo}</strong>
+                        <span>{livro.autor}</span>
+                      </div>
+                      <button className="btn-action btn-sm" onClick={() => addBookToCollection(selectedCollection.id, livro.id)}>
+                        Adicionar
+                      </button>
+                    </div>
+                ))}
+                {livros.filter(l => !selectedCollection.books.includes(l.id)).length === 0 && (
+                  <p className="text-muted text-center">Todos os livros do catálogo já estão nesta coleção.</p>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal Nova Coleção */}
+      {showColModal && (
+        <div className="modal-overlay fade-in" onClick={() => setShowColModal(false)}>
+          <div className="modal-content col-modal animate-pop" onClick={e => e.stopPropagation()}>
+            <div className="col-modal-header">
+              <div className="col-modal-icon">{Icons.folder}</div>
+              <h2>Criar Nova Coleção</h2>
+              <p>Organize seus livros favoritos em coleções personalizadas</p>
+              <button className="btn-close" onClick={() => setShowColModal(false)} aria-label="Fechar">{Icons.x}</button>
+            </div>
+            <form className="col-modal-form" onSubmit={handleCreateCollection}>
+              <div className="input-group">
+                <label>Nome da Coleção</label>
+                <input type="text" placeholder="Ex: Clássicos da Ficção Científica" value={newCol.name} onChange={e => setNewCol({ ...newCol, name: e.target.value })} maxLength="255" required />
+              </div>
+              <div className="input-group">
+                <label>Descrição <span className="optional-tag">(opcional)</span></label>
+                <textarea rows="3" placeholder="Descreva sua coleção..." value={newCol.description} onChange={e => setNewCol({ ...newCol, description: e.target.value })} maxLength="500"></textarea>
+              </div>
+              <div className="toggle-group">
+                <label className="toggle-switch">
+                  <input type="checkbox" checked={newCol.is_public} onChange={e => setNewCol({ ...newCol, is_public: e.target.checked })} />
+                  <span className="toggle-slider"></span>
+                </label>
+                <div className="toggle-label">
+                  <strong>Coleção Pública</strong>
+                  <small>Outros usuários poderão visualizar esta coleção</small>
+                </div>
+              </div>
+              <div className="modal-actions">
+                <button type="button" className="btn-cancel" onClick={() => setShowColModal(false)}>Cancelar</button>
+                <button type="submit" className="btn-save">Criar Coleção</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Modal Selecionador de Coleção (Novo Componente) */}
+      {bookToCollect && (
+        <div className="modal-overlay fade-in" onClick={() => setBookToCollect(null)}>
+          <div className="modal-content col-selector-modal animate-pop" onClick={e => e.stopPropagation()}>
+            <div className="col-modal-header">
+              <div className="col-modal-icon">{Icons.folder}</div>
+              <h2>Adicionar à Coleção</h2>
+              <p>Selecione a coleção para salvar este livro</p>
+              <button className="btn-close" onClick={() => setBookToCollect(null)} aria-label="Fechar">{Icons.x}</button>
+            </div>
+            <div className="col-selector-body">
+              <div className="search-pill" style={{ marginBottom: '1.5rem' }}>
+                <div className="search-icon">{Icons.search}</div>
+                <input 
+                  type="text" 
+                  placeholder="Buscar coleção..." 
+                  value={colSearch} 
+                  onChange={(e) => setColSearch(e.target.value)} 
+                />
+              </div>
+              
+              {myCollections.length === 0 ? (
+                <div className="empty-state-mini">
+                  <p>Você ainda não tem coleções.</p>
+                  <button className="btn-action" style={{marginTop: '0.5rem'}} onClick={() => { setBookToCollect(null); setShowColModal(true); }}>
+                    Criar Nova Coleção
+                  </button>
+                </div>
+              ) : (
+                <div className="collection-list-modern">
+                  {myCollections
+                    .filter(c => c.name.toLowerCase().includes(colSearch.toLowerCase()))
+                    .map(c => {
+                      const isAdded = c.books.includes(bookToCollect);
+                      return (
+                        <div 
+                          key={c.id} 
+                          className={`col-list-item ${isAdded ? 'added' : ''}`}
+                          onClick={() => {
+                            if (!isAdded) {
+                              addBookToCollection(c.id, bookToCollect);
+                            } else {
+                              removeBookFromCollection(c.id, bookToCollect);
+                            }
+                          }}
+                        >
+                          <div className="col-item-left">
+                            <div className={`col-checkbox ${isAdded ? 'checked' : ''}`}>
+                              {isAdded && Icons.check}
+                            </div>
+                            <div className="col-item-info">
+                              <strong>{c.name}</strong>
+                              <span>{c.books.length} livros</span>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                  })}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
     </div>
   )
 }
