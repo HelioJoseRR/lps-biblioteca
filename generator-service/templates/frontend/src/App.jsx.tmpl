@@ -362,6 +362,7 @@ function App() {
   };
 
   const markNotifRead = async (id) => {
+    if (!enabledFeatures.includes('notificacao-service')) return;
     try {
       await fetch(`http://localhost:8080/notificacao-service/notificacoes/${id}/ler`, {
         method: 'PUT', headers: { 'Authorization': `Bearer ${token}` }
@@ -371,6 +372,7 @@ function App() {
   };
 
   const markAllNotifRead = async () => {
+    if (!enabledFeatures.includes('notificacao-service')) return;
     try {
       await fetch('http://localhost:8080/notificacao-service/notificacoes/ler-todas', {
         method: 'PUT', headers: { 'Authorization': `Bearer ${token}` }
@@ -398,6 +400,7 @@ function App() {
   };
 
   const payMulta = async (id) => {
+    if (!enabledFeatures.includes('multa-service')) return;
     try {
       const res = await fetch(`http://localhost:8080/multa-service/multas/${id}/pagar`, {
         method: 'PUT', headers: { 'Authorization': `Bearer ${token}` }
@@ -422,6 +425,7 @@ function App() {
   };
 
   const submitAvaliacao = async (bookId) => {
+    if (!enabledFeatures.includes('avaliacao-service')) return;
     if (!isLoggedIn) return showToast('Faça login para avaliar', 'error');
     try {
       const res = await fetch(`http://localhost:8080/avaliacao-service/avaliacoes/${bookId}`, {
@@ -556,6 +560,7 @@ function App() {
 
   const handleRegister = async (e) => {
     e.preventDefault();
+    if (!enabledFeatures.includes('auth-service')) return;
     if (regPass !== regConfirm) {
       showToast('As senhas não coincidem.', 'error');
       return;
@@ -608,13 +613,13 @@ function App() {
   
   useEffect(() => {
     if (isLoggedIn && token) {
-      fetchFavorites();
+      if (enabledFeatures.includes('auth-service')) fetchFavorites();
       if (enabledFeatures.includes('emprestimo-service')) fetchMyLoan();
     }
   }, [isLoggedIn, token]);
 
   useEffect(() => {
-    if (view === 'collections' && isLoggedIn && token) {
+    if (view === 'collections' && isLoggedIn && token && enabledFeatures.includes('auth-service')) {
       fetchMyCollections();
       fetchPublicCollections();
     }
@@ -622,17 +627,17 @@ function App() {
 
   useEffect(() => {
     if (view === 'admin-panel' && isAdmin && token) {
-      if (adminTab === 'users') fetchUsers();
+      if (adminTab === 'users' && enabledFeatures.includes('auth-service')) fetchUsers();
       if (adminTab === 'loans' && enabledFeatures.includes('emprestimo-service')) fetchAllLoans();
     }
   }, [view, adminTab]);
 
   const sendAdminNotif = async (e) => {
     e.preventDefault();
+    if (!enabledFeatures.includes('notificacao-service')) return;
     try {
       let finalUserId = adminNotif.user_id;
       if (adminNotif.tipo_envio === 'direto') {
-        // Tenta achar o ID pelo nome digitado
         const targetUser = usersList.find(u => u.username.toLowerCase() === finalUserId.toLowerCase() || u.id.toString() === finalUserId);
         if (targetUser) {
           finalUserId = targetUser.id;
@@ -664,6 +669,7 @@ function App() {
   };
 
   const fetchMyCollections = async () => {
+    if (!enabledFeatures.includes('auth-service')) return;
     try {
       const res = await fetch('http://localhost:8080/auth-service/collections/me', {
         headers: { 'Authorization': `Bearer ${token}` }
@@ -676,6 +682,7 @@ function App() {
   };
 
   const fetchPublicCollections = async () => {
+    if (!enabledFeatures.includes('auth-service')) return;
     try {
       const res = await fetch('http://localhost:8080/auth-service/collections', {
         headers: { 'Authorization': `Bearer ${token}` }
@@ -688,6 +695,7 @@ function App() {
   };
 
   const fetchUsers = async () => {
+    if (!enabledFeatures.includes('auth-service')) return;
     try {
       const res = await fetch('http://localhost:8080/auth-service/users', {
         headers: { 'Authorization': `Bearer ${token}` }
@@ -700,6 +708,7 @@ function App() {
   };
 
   const fetchBorrowedBooks = async () => {
+    if (!enabledFeatures.includes('emprestimo-service')) return;
     try {
       const res = await fetch('http://localhost:8080/emprestimo-service/status');
       if (res.ok) setBorrowedBooks(await res.json());
@@ -707,6 +716,7 @@ function App() {
   };
 
   const fetchMyLoan = async () => {
+    if (!enabledFeatures.includes('emprestimo-service')) return;
     try {
       const res = await fetch('http://localhost:8080/emprestimo-service/me', {
         headers: { 'Authorization': `Bearer ${token}` }
@@ -717,6 +727,7 @@ function App() {
   };
 
   const fetchAllLoans = async () => {
+    if (!enabledFeatures.includes('emprestimo-service')) return;
     try {
       const res = await fetch('http://localhost:8080/emprestimo-service/all', {
         headers: { 'Authorization': `Bearer ${token}` }
@@ -726,6 +737,7 @@ function App() {
   };
 
   const handleBorrow = async (bookId) => {
+    if (!enabledFeatures.includes('emprestimo-service')) return;
     if (!isLoggedIn) return showToast('Faça login para emprestar.', 'error');
     try {
       const res = await fetch(`http://localhost:8080/emprestimo-service/${bookId}`, {
@@ -749,6 +761,7 @@ function App() {
   };
 
   const handleReturn = async (bookId) => {
+    if (!enabledFeatures.includes('emprestimo-service')) return;
     if (!isLoggedIn) return;
     try {
       const res = await fetch(`http://localhost:8080/emprestimo-service/${bookId}`, {
@@ -1233,7 +1246,7 @@ function App() {
             </form>
           </div>
         </main>
-      ) : view === 'register' ? (
+      ) : view === 'register' && enabledFeatures.includes('auth-service') ? (
         <main className="login-wrapper fade-in">
           <div className="login-card animate-pop">
             <div className="login-header">
@@ -1321,7 +1334,7 @@ function App() {
             </div>
           </div>
         </main>
-      ) : view === 'my-loan' ? (
+      ) : view === 'my-loan' && enabledFeatures.includes('emprestimo-service') ? (
         <main className="fade-in padding-main">
           <div className="content">
             <section className="section-header">
@@ -1383,7 +1396,7 @@ function App() {
             )}
           </div>
         </main>
-      ) : view === 'favorites' ? (
+      ) : view === 'favorites' && enabledFeatures.includes('auth-service') ? (
         <main className="fade-in padding-main">
           <div className="content">
             <section className="section-header">
@@ -1450,7 +1463,7 @@ function App() {
             )}
           </div>
         </main>
-      ) : view === 'collections' ? (
+      ) : view === 'collections' && enabledFeatures.includes('auth-service') ? (
         <main className="fade-in padding-main">
           <div className="content">
             <section className="section-header">
@@ -1538,7 +1551,7 @@ function App() {
             )}
           </div>
         </main>
-      ) : view === 'collection-details' && selectedCollection ? (
+      ) : view === 'collection-details' && selectedCollection && enabledFeatures.includes('auth-service') ? (
         <main className="fade-in padding-main">
           <div className="content collection-details-content">
             <button className="btn-back" onClick={() => setView('collections')} aria-label="Voltar para coleções">
@@ -1623,7 +1636,7 @@ function App() {
             )}
           </div>
         </main>
-      ) : view === 'multas' ? (
+      ) : view === 'multas' && enabledFeatures.includes('multa-service') ? (
         <main className="fade-in padding-main">
           <div className="content">
             <section className="section-header"><h2>Multas e Pendências</h2><div className="title-underline"></div></section>
@@ -1664,7 +1677,7 @@ function App() {
             )}
           </div>
         </main>
-      ) : view === 'notificacoes' ? (
+      ) : view === 'notificacoes' && enabledFeatures.includes('notificacao-service') ? (
         <main className="fade-in padding-main">
           <div className="content">
             <section className="section-header">
@@ -1696,9 +1709,9 @@ function App() {
             )}
           </div>
         </main>
-      ) : view === 'estatisticas' ? (
+      ) : view === 'estatisticas' && enabledFeatures.includes('busca-service') ? (
         <Estatisticas estatisticas={estatisticas} />
-      ) : view === 'admin-panel' ? (
+      ) : view === 'admin-panel' && isAdmin && enabledFeatures.includes('auth-service') ? (
         <main className="fade-in padding-main">
           <div className="content">
             <section className="section-header">
