@@ -1,0 +1,193 @@
+from fastapi import FastAPI, Query, HTTPException
+from typing import List, Optional
+from pydantic import BaseModel
+import psycopg2
+from psycopg2.extras import RealDictCursor
+import os
+import math
+
+app = FastAPI(title="Serviço de Busca", description="Busca avançada e estatísticas do catálogo de livros.")
+
+def get_db_connection():
+    try:
+        conn = psycopg2.connect(
+            host=os.environ.get("DB_HOST", "db"),
+            database=os.environ.get("DB_NAME", "library_db"),
+            user=os.environ.get("DB_USER", "postgres"),
+            password=os.environ.get("DB_PASS", "postgres")
+        )
+        return conn
+    except Exception as e:
+        print(f"Erro ao conectar ao banco de dados: {e}")
+        return None
+
+class LivroResumo(BaseModel):
+    id: int
+    titulo: str
+    autor: str
+    ano: Optional[int]
+    categoria: Optional[str]
+    tipo_edicao: Optional[str] = None
+    capa_url: Optional[str] = None
+
+class PaginatedResponse(BaseModel):
+    total: int
+    page: int
+    per_page: int
+    pages: int
+    items: List[LivroResumo]
+
+@app.get("/busca", response_model=PaginatedResponse, tags=["Busca"])
+async def busca_avancada(
+    q: Optional[str] = Query(None, description="Busca genérica por título ou autor"),
+    categoria: Optional[str] = Query(None, description="Categoria do livro"),
+    ano_min: Optional[int] = Query(None, description="Ano de publicação mínimo"),
+    ano_max: Optional[int] = Query(None, description="Ano de publicação máximo"),
+    page: int = Query(1, ge=1, description="Número da página"),
+    per_page: int = Query(10, ge=1, le=100, description="Resultados por página")
+):
+    conn = get_db_connection()
+    if not conn:
+        raise HTTPException(status_code=500, detail="Database connection failed")
+        
+    conditions = []
+    params = []
+    
+    if q:
+        conditions.append("(LOWER(titulo) LIKE %s OR LOWER(autor) LIKE %s)")
+        params.extend([f"%{q.lower()}%", f"%{q.lower()}%"])
+    if categoria:
+        conditions.append("LOWER(categoria) = LOWER(%s)")
+        params.append(categoria)
+    if ano_min is not None:
+        conditions.append("ano >= %s")
+        params.append(ano_min)
+    if ano_max is not None:
+        conditions.append("ano <= %s")
+        params.append(ano_max)
+        
+    where_clause = ""
+    if conditions:
+        where_clause = "WHERE " + " AND ".join(conditions)
+        
+    count_query = f"SELECT COUNT(*) FROM livros {where_clause}"
+    
+    offset = (page - 1) * per_page
+    
+    data_query = f"""
+        SELECT id, titulo, autor, ano, categoria, tipo_edicao, capa_url 
+        FROM livros 
+        {where_clause} 
+        ORDER BY id DESC 
+        LIMIT %s OFFSET %s
+    """
+    
+    try:
+        with conn.cursor() as cur:
+            cur.execute(count_query, params)
+            total = cur.fetchone()[0]
+            
+            data_params = params + [per_page, offset]
+            
+            with conn.cursor(cursor_factory=RealDictCursor) as dict_cur:
+                dict_cur.execute(data_query, data_params)
+                items = dict_cur.fetchall()
+                
+                pages = math.ceil(total / per_page)
+                
+                return {
+                    "total": total,
+                    "page": page,
+                    "per_page": per_page,
+                    "pages": pages,
+                    "items": items
+                }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+    finally:
+        conn.close()
+
+@app.get("/busca/categorias", response_model=List[str], tags=["Busca"])
+async def listar_categorias():
+    conn = get_db_connection()
+    if not conn:
+        raise HTTPException(status_code=500, detail="Database connection failed")
+        
+    try:
+        with conn.cursor() as cur:
+            cur.execute("SELECT DISTINCT categoria FROM livros WHERE categoria IS NOT NULL ORDER BY categoria")
+            categorias = [row[0] for row in cur.fetchall()]
+            return categorias
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+    finally:
+        conn.close()
+
+@app.get("/busca/recentes", response_model=List[LivroResumo], tags=["Busca"])
+async def livros_recentes():
+    conn = get_db_connection()
+    if not conn:
+        raise HTTPException(status_code=500, detail="Database connection failed")
+        
+    try:
+        with conn.cursor(cursor_factory=RealDictCursor) as cur:
+            cur.execute("SELECT id, titulo, autor, ano, categoria, tipo_edicao, capa_url FROM livros ORDER BY id DESC LIMIT 10")
+            return cur.fetchall()
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+    finally:
+        conn.close()
+
+@app.get("/busca/estatisticas", tags=["Busca"])
+async def estatisticas():
+    conn = get_db_connection()
+    if not conn:
+        raise HTTPException(status_code=500, detail="Database connection failed")
+        
+    stats = {
+        "total_usuarios": 0,
+        "emprestimos_ativos": 0,
+        "total_avaliacoes": 0
+    }
+    
+    try:
+        with conn.cursor(cursor_factory=RealDictCursor) as cur:
+            # Total de livros
+            cur.execute("SELECT COUNT(*) as total FROM livros")
+            stats["total_livros"] = cur.fetchone()["total"]
+            
+            # Livros por categoria
+            cur.execute("SELECT categoria, COUNT(*) as count FROM livros WHERE categoria IS NOT NULL GROUP BY categoria ORDER BY count DESC")
+            stats["por_categoria"] = cur.fetchall()
+            
+            # Livros por tipo de edição
+            cur.execute("SELECT tipo_edicao, COUNT(*) as count FROM livros WHERE tipo_edicao IS NOT NULL GROUP BY tipo_edicao ORDER BY count DESC")
+            stats["por_tipo_edicao"] = cur.fetchall()
+
+            # Dynamic stats for other tables if they exist
+            try:
+                cur.execute("SELECT COUNT(*) as total FROM users")
+                stats["total_usuarios"] = cur.fetchone()["total"]
+            except Exception:
+                conn.rollback()
+                pass
+
+            try:
+                cur.execute("SELECT COUNT(*) as total FROM emprestimos WHERE data_devolucao IS NULL")
+                stats["emprestimos_ativos"] = cur.fetchone()["total"]
+            except Exception:
+                conn.rollback()
+                pass
+
+            try:
+                cur.execute("SELECT COUNT(*) as total FROM avaliacoes")
+                stats["total_avaliacoes"] = cur.fetchone()["total"]
+            except Exception:
+                conn.rollback()
+                pass
+            
+            return stats
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+    finally:
+        conn.close()

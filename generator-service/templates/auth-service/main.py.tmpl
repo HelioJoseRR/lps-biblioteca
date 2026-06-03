@@ -5,8 +5,11 @@ from jose import JWTError, jwt
 from passlib.context import CryptContext
 from pydantic import BaseModel
 from typing import List, Optional
+import psycopg2
+from psycopg2.extras import RealDictCursor
+import os
 
-app = FastAPI(title="Serviço de Autenticação", description="Gerenciamento de login, cadastro e permissões.")
+app = FastAPI(title="Serviço de Autenticação", description="Gerenciamento de login, cadastro, permissões, coleções e favoritos.")
 
 SECRET_KEY = "chave-secreta-jwt"
 ALGORITHM = "HS256"
@@ -15,28 +18,358 @@ ACCESS_TOKEN_EXPIRE_MINUTES = 60
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="auth/login")
 
-class User(BaseModel):
-    username: str
-    email: Optional[str] = None
-    role: str = "user"
+def get_db_connection():
+    try:
+        conn = psycopg2.connect(
+            host=os.environ.get("DB_HOST", "db"),
+            database=os.environ.get("DB_NAME", "library_db"),
+            user=os.environ.get("DB_USER", "postgres"),
+            password=os.environ.get("DB_PASS", "postgres")
+        )
+        return conn
+    except Exception as e:
+        print(f"Erro ao conectar ao banco de dados: {e}")
+        return None
 
+# Modelos
+class UserRegister(BaseModel):
+    username: str
+    email: str
+    password: str
+
+class UserResponse(BaseModel):
+    id: int
+    username: str
+    email: str
+    role: str
+
+class CollectionCreate(BaseModel):
+    name: str
+    description: Optional[str] = None
+    is_public: bool = False
+
+class CollectionUpdate(BaseModel):
+    name: Optional[str] = None
+    description: Optional[str] = None
+    is_public: Optional[bool] = None
+
+def get_current_user(token: str = Depends(oauth2_scheme)):
+    credentials_exception = HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail="Credenciais inválidas",
+        headers={"WWW-Authenticate": "Bearer"},
+    )
+    try:
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        user_id: str = payload.get("sub")
+        if user_id is None:
+            raise credentials_exception
+    except JWTError:
+        raise credentials_exception
+        
+    conn = get_db_connection()
+    if conn:
+        with conn.cursor(cursor_factory=RealDictCursor) as cur:
+            cur.execute("SELECT id, username, email, role FROM users WHERE id = %s", (user_id,))
+            user = cur.fetchone()
+            if user is None:
+                raise credentials_exception
+            return user
+    raise HTTPException(status_code=500, detail="Database connection failed")
+
+def require_admin(current_user: dict = Depends(get_current_user)):
+    if current_user.get("role") != "admin":
+        raise HTTPException(status_code=403, detail="Acesso negado")
+    return current_user
+
+# ============================
+# AUTENTICAÇÃO E USUÁRIOS
+# ============================
 @app.post("/auth/register", tags=["Autenticação"])
-async def register(user: User):
-    return {"message": "Usuário registrado com sucesso", "user": user.username}
+async def register(user: UserRegister):
+    conn = get_db_connection()
+    if not conn:
+        raise HTTPException(status_code=500, detail="Database connection failed")
+        
+    hashed_password = pwd_context.hash(user.password)
+    try:
+        with conn.cursor() as cur:
+            cur.execute("INSERT INTO users (username, email, password_hash) VALUES (%s, %s, %s) RETURNING id, username, email, role", 
+                        (user.username, user.email, hashed_password))
+            new_user = cur.fetchone()
+            conn.commit()
+            return {"message": "Usuário registrado com sucesso", "user": {"id": new_user[0], "username": new_user[1], "email": new_user[2], "role": new_user[3]}}
+    except psycopg2.IntegrityError:
+        conn.rollback()
+        raise HTTPException(status_code=400, detail="E-mail ou nome de usuário já existe")
 
 @app.post("/auth/login", tags=["Autenticação"])
 async def login(form_data: OAuth2PasswordRequestForm = Depends()):
-    access_token = jwt.encode({"sub": form_data.username, "role": "admin"}, SECRET_KEY, algorithm=ALGORITHM)
-    return {"access_token": access_token, "token_type": "bearer"}
-
-@app.post("/auth/logout", tags=["Autenticação"])
-async def logout():
-    return {"message": "Logout realizado com sucesso"}
+    conn = get_db_connection()
+    if not conn:
+        raise HTTPException(status_code=500, detail="Database connection failed")
+        
+    with conn.cursor(cursor_factory=RealDictCursor) as cur:
+        cur.execute("SELECT id, username, email, password_hash, role FROM users WHERE LOWER(email) = LOWER(%s) OR LOWER(username) = LOWER(%s)", 
+                    (form_data.username, form_data.username))
+        user = cur.fetchone()
+        
+    if not user:
+        raise HTTPException(status_code=400, detail="Usuário ou senha incorretos")
+        
+    db_hash = user['password_hash']
+    valid_password = False
+    
+    if not db_hash.startswith("$2"):
+        if db_hash == form_data.password:
+            valid_password = True
+            new_hash = pwd_context.hash(form_data.password)
+            with conn.cursor() as cur:
+                cur.execute("UPDATE users SET password_hash = %s WHERE id = %s", (new_hash, user['id']))
+                conn.commit()
+    else:
+        valid_password = pwd_context.verify(form_data.password, db_hash)
+        
+    if not valid_password:
+        raise HTTPException(status_code=400, detail="Usuário ou senha incorretos")
+        
+    access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
+    expire = datetime.utcnow() + access_token_expires
+    to_encode = {"sub": str(user['id']), "username": user['username'], "role": user['role'], "exp": expire}
+    access_token = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
+    
+    return {"access_token": access_token, "token_type": "bearer", "user": {"id": user['id'], "username": user['username'], "role": user['role']}}
 
 @app.get("/users/me", tags=["Usuários"])
-async def get_me(token: str = Depends(oauth2_scheme)):
-    return {"username": "usuario_atual", "role": "admin", "permissions": ["users:read", "users:write", "catalog:edit"]}
+async def get_me(current_user: dict = Depends(get_current_user)):
+    return current_user
 
-@app.get("/users", tags=["Usuários"])
-async def list_users(token: str = Depends(oauth2_scheme)):
-    return [{"username": "admin", "role": "admin"}, {"username": "operador", "role": "editor"}]
+class UserUpdate(BaseModel):
+    username: Optional[str] = None
+    email: Optional[str] = None
+
+@app.put("/users/me", tags=["Usuários"])
+async def update_me(update: UserUpdate, current_user: dict = Depends(get_current_user)):
+    conn = get_db_connection()
+    if not conn:
+        raise HTTPException(status_code=500, detail="Database connection failed")
+
+    campos = {}
+    if update.username is not None:
+        campos["username"] = update.username
+    if update.email is not None:
+        campos["email"] = update.email
+
+    if not campos:
+        raise HTTPException(status_code=400, detail="Nenhum campo para atualizar")
+
+    try:
+        with conn.cursor(cursor_factory=RealDictCursor) as cur:
+            set_clause = ", ".join([f"{k} = %s" for k in campos.keys()])
+            values = list(campos.values()) + [current_user['id']]
+            query = f"UPDATE users SET {set_clause} WHERE id = %s RETURNING id, username, email, role"
+            cur.execute(query, values)
+            updated_user = cur.fetchone()
+            conn.commit()
+            return updated_user
+    except psycopg2.IntegrityError:
+        conn.rollback()
+        raise HTTPException(status_code=400, detail="E-mail ou nome de usuário já está em uso")
+
+class PasswordChange(BaseModel):
+    current_password: str
+    new_password: str
+
+@app.put("/users/me/password", tags=["Usuários"])
+async def change_password(passwords: PasswordChange, current_user: dict = Depends(get_current_user)):
+    conn = get_db_connection()
+    if not conn:
+        raise HTTPException(status_code=500, detail="Database connection failed")
+
+    with conn.cursor(cursor_factory=RealDictCursor) as cur:
+        cur.execute("SELECT password_hash FROM users WHERE id = %s", (current_user['id'],))
+        user = cur.fetchone()
+
+    if not user:
+        raise HTTPException(status_code=404, detail="Usuário não encontrado")
+
+    db_hash = user['password_hash']
+
+    # Verifica a senha atual (suporta hash bcrypt e texto puro legado)
+    if db_hash.startswith("$2"):
+        if not pwd_context.verify(passwords.current_password, db_hash):
+            raise HTTPException(status_code=400, detail="Senha atual incorreta")
+    else:
+        if db_hash != passwords.current_password:
+            raise HTTPException(status_code=400, detail="Senha atual incorreta")
+
+    # Valida a nova senha
+    if len(passwords.new_password) < 4:
+        raise HTTPException(status_code=400, detail="A nova senha deve ter no mínimo 4 caracteres")
+
+    new_hash = pwd_context.hash(passwords.new_password)
+    with conn.cursor() as cur:
+        cur.execute("UPDATE users SET password_hash = %s WHERE id = %s", (new_hash, current_user['id']))
+        conn.commit()
+
+    return {"message": "Senha alterada com sucesso"}
+
+# ============================
+# PAINEL ADMIN
+# ============================
+@app.get("/users", tags=["Admin"])
+async def list_users(current_user: dict = Depends(require_admin)):
+    conn = get_db_connection()
+    with conn.cursor(cursor_factory=RealDictCursor) as cur:
+        cur.execute("SELECT id, username, email, role FROM users")
+        return cur.fetchall()
+
+@app.put("/users/{user_id}/role", tags=["Admin"])
+async def update_role(user_id: int, role: str, current_user: dict = Depends(require_admin)):
+    if role not in ["admin", "user"]:
+        raise HTTPException(status_code=400, detail="Role inválida")
+    conn = get_db_connection()
+    with conn.cursor() as cur:
+        cur.execute("UPDATE users SET role = %s WHERE id = %s RETURNING id", (role, user_id))
+        if not cur.fetchone():
+            raise HTTPException(status_code=404, detail="Usuário não encontrado")
+        conn.commit()
+    return {"message": "Role atualizada com sucesso"}
+
+@app.delete("/users/{user_id}", tags=["Admin"])
+async def delete_user(user_id: int, current_user: dict = Depends(require_admin)):
+    if user_id == current_user['id']:
+        raise HTTPException(status_code=400, detail="Não pode excluir a si mesmo")
+    conn = get_db_connection()
+    with conn.cursor() as cur:
+        cur.execute("DELETE FROM users WHERE id = %s RETURNING id", (user_id,))
+        if not cur.fetchone():
+            raise HTTPException(status_code=404, detail="Usuário não encontrado")
+        conn.commit()
+    return {"message": "Usuário excluído com sucesso"}
+
+# ============================
+# COLEÇÕES
+# ============================
+@app.post("/collections", tags=["Coleções"])
+async def create_collection(collection: CollectionCreate, current_user: dict = Depends(get_current_user)):
+    conn = get_db_connection()
+    with conn.cursor(cursor_factory=RealDictCursor) as cur:
+        cur.execute("INSERT INTO collections (user_id, name, description, is_public) VALUES (%s, %s, %s, %s) RETURNING *",
+                    (current_user['id'], collection.name, collection.description, collection.is_public))
+        new_col = cur.fetchone()
+        new_col['books'] = []
+        conn.commit()
+        return new_col
+
+@app.get("/collections/me", tags=["Coleções"])
+async def my_collections(current_user: dict = Depends(get_current_user)):
+    conn = get_db_connection()
+    with conn.cursor(cursor_factory=RealDictCursor) as cur:
+        cur.execute("SELECT * FROM collections WHERE user_id = %s", (current_user['id'],))
+        cols = cur.fetchall()
+        for col in cols:
+            cur.execute("SELECT book_id FROM collection_books WHERE collection_id = %s", (col['id'],))
+            col['books'] = [r['book_id'] for r in cur.fetchall()]
+        return cols
+
+@app.get("/collections", tags=["Coleções"])
+async def public_collections(current_user: dict = Depends(get_current_user)):
+    conn = get_db_connection()
+    with conn.cursor(cursor_factory=RealDictCursor) as cur:
+        cur.execute("SELECT c.*, u.username as owner_name FROM collections c JOIN users u ON c.user_id = u.id WHERE c.is_public = true")
+        cols = cur.fetchall()
+        for col in cols:
+            cur.execute("SELECT book_id FROM collection_books WHERE collection_id = %s", (col['id'],))
+            col['books'] = [r['book_id'] for r in cur.fetchall()]
+        return cols
+
+@app.delete("/collections/{collection_id}", tags=["Coleções"])
+async def delete_collection(collection_id: int, current_user: dict = Depends(get_current_user)):
+    conn = get_db_connection()
+    with conn.cursor() as cur:
+        cur.execute("SELECT id FROM collections WHERE id = %s AND user_id = %s", (collection_id, current_user['id']))
+        if not cur.fetchone():
+            raise HTTPException(status_code=403, detail="Coleção não encontrada ou acesso negado")
+            
+        cur.execute("DELETE FROM collections WHERE id = %s", (collection_id,))
+        conn.commit()
+        return {"message": "Coleção excluída com sucesso"}
+
+@app.put("/collections/{collection_id}", tags=["Coleções"])
+async def update_collection(collection_id: int, update: CollectionUpdate, current_user: dict = Depends(get_current_user)):
+    conn = get_db_connection()
+    with conn.cursor(cursor_factory=RealDictCursor) as cur:
+        cur.execute("SELECT id FROM collections WHERE id = %s AND user_id = %s", (collection_id, current_user['id']))
+        if not cur.fetchone():
+            raise HTTPException(status_code=403, detail="Coleção não encontrada ou acesso negado")
+            
+        campos = {}
+        if update.name is not None: campos["name"] = update.name
+        if update.description is not None: campos["description"] = update.description
+        if update.is_public is not None: campos["is_public"] = update.is_public
+        
+        if not campos:
+            raise HTTPException(status_code=400, detail="Nenhum campo para atualizar")
+            
+        set_clause = ", ".join([f"{k} = %s" for k in campos.keys()])
+        values = list(campos.values()) + [collection_id]
+        query = f"UPDATE collections SET {set_clause} WHERE id = %s RETURNING *"
+        cur.execute(query, values)
+        updated_col = cur.fetchone()
+        conn.commit()
+        return updated_col
+
+@app.post("/collections/{collection_id}/books/{book_id}", tags=["Coleções"])
+async def add_book_to_collection(collection_id: int, book_id: int, current_user: dict = Depends(get_current_user)):
+    conn = get_db_connection()
+    with conn.cursor() as cur:
+        cur.execute("SELECT id FROM collections WHERE id = %s AND user_id = %s", (collection_id, current_user['id']))
+        if not cur.fetchone():
+            raise HTTPException(status_code=403, detail="Coleção não encontrada ou acesso negado")
+            
+        try:
+            cur.execute("INSERT INTO collection_books (collection_id, book_id) VALUES (%s, %s)", (collection_id, book_id))
+            conn.commit()
+            return {"message": "Livro adicionado à coleção"}
+        except psycopg2.IntegrityError:
+            conn.rollback()
+            raise HTTPException(status_code=400, detail="Livro já está na coleção")
+
+@app.delete("/collections/{collection_id}/books/{book_id}", tags=["Coleções"])
+async def remove_book_from_collection(collection_id: int, book_id: int, current_user: dict = Depends(get_current_user)):
+    conn = get_db_connection()
+    with conn.cursor() as cur:
+        cur.execute("SELECT id FROM collections WHERE id = %s AND user_id = %s", (collection_id, current_user['id']))
+        if not cur.fetchone():
+            raise HTTPException(status_code=403, detail="Coleção não encontrada ou acesso negado")
+            
+        cur.execute("DELETE FROM collection_books WHERE collection_id = %s AND book_id = %s", (collection_id, book_id))
+        conn.commit()
+        return {"message": "Livro removido da coleção"}
+
+# ============================
+# FAVORITOS
+# ============================
+@app.post("/favorites/{book_id}", tags=["Favoritos"])
+async def toggle_favorite(book_id: int, current_user: dict = Depends(get_current_user)):
+    conn = get_db_connection()
+    with conn.cursor() as cur:
+        cur.execute("SELECT book_id FROM favorites WHERE user_id = %s AND book_id = %s", (current_user['id'], book_id))
+        existing = cur.fetchone()
+        
+        if existing:
+            cur.execute("DELETE FROM favorites WHERE user_id = %s AND book_id = %s", (current_user['id'], book_id))
+            action = "removed"
+        else:
+            cur.execute("INSERT INTO favorites (user_id, book_id) VALUES (%s, %s)", (current_user['id'], book_id))
+            action = "added"
+        conn.commit()
+        return {"action": action, "book_id": book_id}
+
+@app.get("/favorites", tags=["Favoritos"])
+async def get_favorites(current_user: dict = Depends(get_current_user)):
+    conn = get_db_connection()
+    with conn.cursor(cursor_factory=RealDictCursor) as cur:
+        cur.execute("SELECT book_id FROM favorites WHERE user_id = %s", (current_user['id'],))
+        return [row['book_id'] for row in cur.fetchall()]

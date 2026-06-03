@@ -1,0 +1,173 @@
+from fastapi import FastAPI, Depends, HTTPException, status
+from fastapi.security import OAuth2PasswordBearer
+from pydantic import BaseModel
+from typing import List, Optional
+from jose import JWTError, jwt
+import psycopg2
+from psycopg2.extras import RealDictCursor
+import os
+
+app = FastAPI(title="Serviço de Multas", description="Gerenciamento de multas por atraso de empréstimos.")
+
+SECRET_KEY = "chave-secreta-jwt"
+ALGORITHM = "HS256"
+
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="auth/login")
+
+def get_db_connection():
+    try:
+        conn = psycopg2.connect(
+            host=os.environ.get("DB_HOST", "db"),
+            database=os.environ.get("DB_NAME", "library_db"),
+            user=os.environ.get("DB_USER", "postgres"),
+            password=os.environ.get("DB_PASS", "postgres")
+        )
+        return conn
+    except Exception as e:
+        print(f"Erro ao conectar ao banco de dados: {e}")
+        return None
+
+def get_current_user(token: str = Depends(oauth2_scheme)):
+    credentials_exception = HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail="Credenciais inválidas",
+        headers={"WWW-Authenticate": "Bearer"},
+    )
+    try:
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        user_id: str = payload.get("sub")
+        role: str = payload.get("role")
+        if user_id is None:
+            raise credentials_exception
+        return {"id": int(user_id), "role": role}
+    except JWTError:
+        raise credentials_exception
+
+def require_admin(current_user: dict = Depends(get_current_user)):
+    if current_user.get("role") != "admin":
+        raise HTTPException(status_code=403, detail="Acesso negado")
+    return current_user
+
+class MultaCreate(BaseModel):
+    user_id: int
+    emprestimo_id: int
+    valor: float
+    motivo: str
+
+@app.get("/multas/me", tags=["Usuário"])
+async def minhas_multas(current_user: dict = Depends(get_current_user)):
+    conn = get_db_connection()
+    if not conn:
+        raise HTTPException(status_code=500, detail="Database connection failed")
+        
+    try:
+        with conn.cursor(cursor_factory=RealDictCursor) as cur:
+            cur.execute("SELECT * FROM multas WHERE user_id = %s ORDER BY created_at DESC", (current_user['id'],))
+            return cur.fetchall()
+    finally:
+        conn.close()
+
+@app.put("/multas/{multa_id}/pagar", tags=["Usuário", "Admin"])
+async def pagar_multa(multa_id: int, current_user: dict = Depends(get_current_user)):
+    conn = get_db_connection()
+    if not conn:
+        raise HTTPException(status_code=500, detail="Database connection failed")
+        
+    try:
+        with conn.cursor(cursor_factory=RealDictCursor) as cur:
+            # Verifica se a multa existe e se o usuário pode pagá-la
+            cur.execute("SELECT * FROM multas WHERE id = %s", (multa_id,))
+            multa = cur.fetchone()
+            
+            if not multa:
+                raise HTTPException(status_code=404, detail="Multa não encontrada")
+                
+            if current_user['role'] != 'admin' and multa['user_id'] != current_user['id']:
+                raise HTTPException(status_code=403, detail="Acesso negado")
+                
+            if multa['status'] == 'paga':
+                return {"message": "Multa já está paga", "multa": multa}
+                
+            cur.execute("UPDATE multas SET status = 'paga' WHERE id = %s RETURNING *", (multa_id,))
+            multa_atualizada = cur.fetchone()
+            conn.commit()
+            return {"message": "Multa paga com sucesso", "multa": multa_atualizada}
+    except HTTPException:
+        raise
+    except Exception as e:
+        conn.rollback()
+        raise HTTPException(status_code=500, detail=str(e))
+    finally:
+        conn.close()
+
+@app.post("/multas", tags=["Admin"])
+async def criar_multa(multa: MultaCreate, current_user: dict = Depends(require_admin)):
+    conn = get_db_connection()
+    if not conn:
+        raise HTTPException(status_code=500, detail="Database connection failed")
+        
+    try:
+        with conn.cursor(cursor_factory=RealDictCursor) as cur:
+            cur.execute(
+                """INSERT INTO multas (user_id, emprestimo_id, valor, motivo) 
+                   VALUES (%s, %s, %s, %s) RETURNING *""",
+                (multa.user_id, multa.emprestimo_id, multa.valor, multa.motivo)
+            )
+            nova_multa = cur.fetchone()
+            conn.commit()
+            return nova_multa
+    except psycopg2.IntegrityError:
+        conn.rollback()
+        raise HTTPException(status_code=400, detail="Usuário ou empréstimo inválido")
+    except Exception as e:
+        conn.rollback()
+        raise HTTPException(status_code=500, detail=str(e))
+    finally:
+        conn.close()
+
+@app.get("/multas/all", tags=["Admin"])
+async def todas_multas(current_user: dict = Depends(require_admin)):
+    conn = get_db_connection()
+    if not conn:
+        raise HTTPException(status_code=500, detail="Database connection failed")
+        
+    try:
+        with conn.cursor(cursor_factory=RealDictCursor) as cur:
+            query = """
+            SELECT m.*, u.username, u.email 
+            FROM multas m
+            JOIN users u ON m.user_id = u.id
+            ORDER BY m.created_at DESC
+            """
+            cur.execute(query)
+            return cur.fetchall()
+    finally:
+        conn.close()
+
+@app.get("/multas/resumo", tags=["Admin"])
+async def resumo_financeiro(current_user: dict = Depends(require_admin)):
+    conn = get_db_connection()
+    if not conn:
+        raise HTTPException(status_code=500, detail="Database connection failed")
+        
+    try:
+        with conn.cursor(cursor_factory=RealDictCursor) as cur:
+            cur.execute("SELECT COUNT(*) as qtd, COALESCE(SUM(valor), 0) as total FROM multas WHERE status = 'pendente'")
+            pendentes = cur.fetchone()
+            
+            cur.execute("SELECT COUNT(*) as qtd, COALESCE(SUM(valor), 0) as total FROM multas WHERE status = 'paga'")
+            pagas = cur.fetchone()
+            
+            return {
+                "pendentes": {
+                    "quantidade": pendentes["qtd"],
+                    "valor_total": float(pendentes["total"])
+                },
+                "pagas": {
+                    "quantidade": pagas["qtd"],
+                    "valor_total": float(pagas["total"])
+                },
+                "total_arrecadado": float(pagas["total"])
+            }
+    finally:
+        conn.close()

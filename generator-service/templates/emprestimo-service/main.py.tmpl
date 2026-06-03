@@ -1,0 +1,209 @@
+from fastapi import FastAPI, Depends, HTTPException, status
+from fastapi.security import OAuth2PasswordBearer
+from jose import JWTError, jwt
+import psycopg2
+from psycopg2.extras import RealDictCursor
+import os
+from datetime import datetime, timedelta
+
+app = FastAPI(title="Serviço de Empréstimos", description="Gerenciamento de empréstimos de livros com limite de 1 por usuário.")
+
+SECRET_KEY = "chave-secreta-jwt"
+ALGORITHM = "HS256"
+
+PRAZO_DEVOLUCAO_DIAS = 14
+
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="auth/login")
+
+def get_db_connection():
+    try:
+        conn = psycopg2.connect(
+            host=os.environ.get("DB_HOST", "db"),
+            database=os.environ.get("DB_NAME", "library_db"),
+            user=os.environ.get("DB_USER", "postgres"),
+            password=os.environ.get("DB_PASS", "postgres")
+        )
+        return conn
+    except Exception as e:
+        print(f"Erro ao conectar ao banco de dados: {e}")
+        return None
+
+def get_current_user(token: str = Depends(oauth2_scheme)):
+    credentials_exception = HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail="Credenciais inválidas",
+        headers={"WWW-Authenticate": "Bearer"},
+    )
+    try:
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        user_id: str = payload.get("sub")
+        role: str = payload.get("role")
+        if user_id is None:
+            raise credentials_exception
+        return {"id": int(user_id), "role": role}
+    except JWTError:
+        raise credentials_exception
+
+def require_admin(current_user: dict = Depends(get_current_user)):
+    if current_user.get("role") != "admin":
+        raise HTTPException(status_code=403, detail="Acesso negado")
+    return current_user
+
+# ============================
+# EMPRÉSTIMOS
+# ============================
+
+@app.get("/status", tags=["Público"])
+async def list_borrowed_books():
+    """Retorna os IDs de todos os livros atualmente emprestados."""
+    conn = get_db_connection()
+    if not conn:
+        raise HTTPException(status_code=500, detail="Database error")
+    with conn.cursor(cursor_factory=RealDictCursor) as cur:
+        cur.execute("SELECT book_id FROM emprestimos WHERE data_devolucao IS NULL")
+        return [row['book_id'] for row in cur.fetchall()]
+
+@app.get("/me", tags=["Usuário"])
+async def my_loan(current_user: dict = Depends(get_current_user)):
+    """Retorna o empréstimo ativo do usuário (limite de 1)."""
+    conn = get_db_connection()
+    if not conn:
+        raise HTTPException(status_code=500, detail="Database error")
+    with conn.cursor(cursor_factory=RealDictCursor) as cur:
+        cur.execute("SELECT * FROM emprestimos WHERE user_id = %s AND data_devolucao IS NULL", (current_user['id'],))
+        loan = cur.fetchone()
+        return loan
+
+@app.post("/{book_id}", tags=["Usuário"])
+async def borrow_book(book_id: int, current_user: dict = Depends(get_current_user)):
+    """Tenta pegar um livro emprestado. Calcula prazo de devolução automaticamente."""
+    conn = get_db_connection()
+    if not conn:
+        raise HTTPException(status_code=500, detail="Database error")
+        
+    try:
+        with conn.cursor(cursor_factory=RealDictCursor) as cur:
+            prazo = datetime.utcnow() + timedelta(days=PRAZO_DEVOLUCAO_DIAS)
+            cur.execute(
+                """INSERT INTO emprestimos (user_id, book_id, prazo_devolucao) 
+                   VALUES (%s, %s, %s) 
+                   RETURNING *""",
+                (current_user['id'], book_id, prazo)
+            )
+            loan = cur.fetchone()
+            conn.commit()
+            return {"message": "Empréstimo realizado com sucesso!", "loan": loan}
+    except psycopg2.IntegrityError as e:
+        conn.rollback()
+        err_msg = str(e)
+        if "idx_emprestimos_user_ativo" in err_msg:
+            raise HTTPException(status_code=400, detail="Você já possui um livro emprestado. Devolva-o primeiro.")
+        elif "idx_emprestimos_book_ativo" in err_msg:
+            raise HTTPException(status_code=400, detail="Este livro já está emprestado para outro usuário.")
+        else:
+            raise HTTPException(status_code=400, detail="Erro ao processar empréstimo. Verifique se o livro existe.")
+
+@app.delete("/{book_id}", tags=["Usuário/Admin"])
+async def return_book(book_id: int, current_user: dict = Depends(get_current_user)):
+    """Devolve o livro registrando a data de devolução. Pode ser o próprio usuário ou um Admin."""
+    conn = get_db_connection()
+    if not conn:
+        raise HTTPException(status_code=500, detail="Database error")
+        
+    with conn.cursor(cursor_factory=RealDictCursor) as cur:
+        if current_user['role'] == 'admin':
+            cur.execute(
+                "UPDATE emprestimos SET data_devolucao = NOW() WHERE book_id = %s AND data_devolucao IS NULL RETURNING id",
+                (book_id,)
+            )
+        else:
+            cur.execute(
+                "UPDATE emprestimos SET data_devolucao = NOW() WHERE book_id = %s AND user_id = %s AND data_devolucao IS NULL RETURNING id",
+                (book_id, current_user['id'])
+            )
+            
+        if not cur.fetchone():
+            conn.rollback()
+            raise HTTPException(status_code=404, detail="Empréstimo não encontrado ou sem permissão para devolver.")
+            
+        conn.commit()
+        return {"message": "Livro devolvido com sucesso!"}
+
+# ============================
+# HISTÓRICO
+# ============================
+
+@app.get("/historico", tags=["Usuário"])
+async def loan_history(current_user: dict = Depends(get_current_user)):
+    """Retorna o histórico completo de empréstimos do usuário (ativos e passados)."""
+    conn = get_db_connection()
+    if not conn:
+        raise HTTPException(status_code=500, detail="Database error")
+
+    query = """
+    SELECT e.id, e.book_id, e.data_emprestimo, e.prazo_devolucao, e.data_devolucao,
+           l.titulo, l.autor,
+           CASE WHEN e.data_devolucao IS NULL THEN true ELSE false END AS ativo,
+           CASE 
+               WHEN e.data_devolucao IS NULL AND e.prazo_devolucao < NOW() THEN true 
+               ELSE false 
+           END AS atrasado
+    FROM emprestimos e
+    JOIN livros l ON e.book_id = l.id
+    WHERE e.user_id = %s
+    ORDER BY e.data_emprestimo DESC
+    """
+    with conn.cursor(cursor_factory=RealDictCursor) as cur:
+        cur.execute(query, (current_user['id'],))
+        return cur.fetchall()
+
+# ============================
+# ADMIN
+# ============================
+
+@app.get("/all", tags=["Admin"])
+async def all_loans(current_user: dict = Depends(require_admin)):
+    """Retorna todos os empréstimos ativos detalhados para o Painel Admin."""
+    conn = get_db_connection()
+    if not conn:
+        raise HTTPException(status_code=500, detail="Database error")
+        
+    query = """
+    SELECT e.id, e.user_id, e.book_id, e.data_emprestimo, e.prazo_devolucao, e.data_devolucao,
+           u.username, u.email, 
+           l.titulo,
+           CASE 
+               WHEN e.data_devolucao IS NULL AND e.prazo_devolucao < NOW() THEN true 
+               ELSE false 
+           END AS atrasado
+    FROM emprestimos e
+    JOIN users u ON e.user_id = u.id
+    JOIN livros l ON e.book_id = l.id
+    WHERE e.data_devolucao IS NULL
+    ORDER BY e.data_emprestimo DESC
+    """
+    with conn.cursor(cursor_factory=RealDictCursor) as cur:
+        cur.execute(query)
+        return cur.fetchall()
+
+@app.get("/atrasados", tags=["Admin"])
+async def overdue_loans(current_user: dict = Depends(require_admin)):
+    """Retorna todos os empréstimos ativos cujo prazo de devolução já expirou."""
+    conn = get_db_connection()
+    if not conn:
+        raise HTTPException(status_code=500, detail="Database error")
+
+    query = """
+    SELECT e.id, e.user_id, e.book_id, e.data_emprestimo, e.prazo_devolucao,
+           u.username, u.email,
+           l.titulo,
+           EXTRACT(DAY FROM NOW() - e.prazo_devolucao)::int AS dias_atraso
+    FROM emprestimos e
+    JOIN users u ON e.user_id = u.id
+    JOIN livros l ON e.book_id = l.id
+    WHERE e.data_devolucao IS NULL AND e.prazo_devolucao < NOW()
+    ORDER BY e.prazo_devolucao ASC
+    """
+    with conn.cursor(cursor_factory=RealDictCursor) as cur:
+        cur.execute(query)
+        return cur.fetchall()

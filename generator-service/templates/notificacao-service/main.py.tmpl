@@ -1,0 +1,184 @@
+from fastapi import FastAPI, Depends, HTTPException, status
+from fastapi.security import OAuth2PasswordBearer
+from pydantic import BaseModel
+from typing import List, Optional
+from jose import JWTError, jwt
+import psycopg2
+from psycopg2.extras import RealDictCursor
+import os
+
+app = FastAPI(title="Serviço de Notificações", description="Gerenciamento de notificações para usuários.")
+
+SECRET_KEY = "chave-secreta-jwt"
+ALGORITHM = "HS256"
+
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="auth/login")
+
+def get_db_connection():
+    try:
+        conn = psycopg2.connect(
+            host=os.environ.get("DB_HOST", "db"),
+            database=os.environ.get("DB_NAME", "library_db"),
+            user=os.environ.get("DB_USER", "postgres"),
+            password=os.environ.get("DB_PASS", "postgres")
+        )
+        return conn
+    except Exception as e:
+        print(f"Erro ao conectar ao banco de dados: {e}")
+        return None
+
+def get_current_user(token: str = Depends(oauth2_scheme)):
+    credentials_exception = HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail="Credenciais inválidas",
+        headers={"WWW-Authenticate": "Bearer"},
+    )
+    try:
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        user_id: str = payload.get("sub")
+        role: str = payload.get("role")
+        if user_id is None:
+            raise credentials_exception
+        return {"id": int(user_id), "role": role}
+    except JWTError:
+        raise credentials_exception
+
+def require_admin(current_user: dict = Depends(get_current_user)):
+    if current_user.get("role") != "admin":
+        raise HTTPException(status_code=403, detail="Acesso negado")
+    return current_user
+
+class NotificacaoCreate(BaseModel):
+    user_id: int
+    titulo: str
+    mensagem: str
+    tipo: Optional[str] = "info"
+
+class BroadcastCreate(BaseModel):
+    titulo: str
+    mensagem: str
+    tipo: Optional[str] = "info"
+
+@app.get("/notificacoes/me", tags=["Usuário"])
+async def minhas_notificacoes(current_user: dict = Depends(get_current_user)):
+    conn = get_db_connection()
+    if not conn:
+        raise HTTPException(status_code=500, detail="Database connection failed")
+        
+    try:
+        with conn.cursor(cursor_factory=RealDictCursor) as cur:
+            cur.execute("SELECT * FROM notificacoes WHERE user_id = %s ORDER BY created_at DESC", (current_user['id'],))
+            return cur.fetchall()
+    finally:
+        conn.close()
+
+@app.get("/notificacoes/count", tags=["Usuário"])
+async def count_nao_lidas(current_user: dict = Depends(get_current_user)):
+    conn = get_db_connection()
+    if not conn:
+        raise HTTPException(status_code=500, detail="Database connection failed")
+        
+    try:
+        with conn.cursor(cursor_factory=RealDictCursor) as cur:
+            cur.execute("SELECT COUNT(*) as unread_count FROM notificacoes WHERE user_id = %s AND lida = false", (current_user['id'],))
+            return cur.fetchone()
+    finally:
+        conn.close()
+
+@app.put("/notificacoes/ler-todas", tags=["Usuário"])
+async def marcar_todas_como_lidas(current_user: dict = Depends(get_current_user)):
+    conn = get_db_connection()
+    if not conn:
+        raise HTTPException(status_code=500, detail="Database connection failed")
+        
+    try:
+        with conn.cursor() as cur:
+            cur.execute("UPDATE notificacoes SET lida = true WHERE user_id = %s AND lida = false", (current_user['id'],))
+            conn.commit()
+            return {"message": "Todas as notificações foram marcadas como lidas"}
+    except Exception as e:
+        conn.rollback()
+        raise HTTPException(status_code=500, detail=str(e))
+    finally:
+        conn.close()
+
+@app.put("/notificacoes/{notificacao_id}/ler", tags=["Usuário"])
+async def marcar_como_lida(notificacao_id: int, current_user: dict = Depends(get_current_user)):
+    conn = get_db_connection()
+    if not conn:
+        raise HTTPException(status_code=500, detail="Database connection failed")
+        
+    try:
+        with conn.cursor(cursor_factory=RealDictCursor) as cur:
+            cur.execute("UPDATE notificacoes SET lida = true WHERE id = %s AND user_id = %s RETURNING *", (notificacao_id, current_user['id']))
+            notificacao = cur.fetchone()
+            if not notificacao:
+                conn.rollback()
+                raise HTTPException(status_code=404, detail="Notificação não encontrada")
+            conn.commit()
+            return notificacao
+    except HTTPException:
+        raise
+    except Exception as e:
+        conn.rollback()
+        raise HTTPException(status_code=500, detail=str(e))
+    finally:
+        conn.close()
+
+@app.post("/notificacoes", tags=["Admin"])
+async def enviar_notificacao(notificacao: NotificacaoCreate, current_user: dict = Depends(require_admin)):
+    conn = get_db_connection()
+    if not conn:
+        raise HTTPException(status_code=500, detail="Database connection failed")
+        
+    try:
+        with conn.cursor(cursor_factory=RealDictCursor) as cur:
+            cur.execute(
+                """INSERT INTO notificacoes (user_id, titulo, mensagem, tipo) 
+                   VALUES (%s, %s, %s, %s) RETURNING *""",
+                (notificacao.user_id, notificacao.titulo, notificacao.mensagem, notificacao.tipo)
+            )
+            nova = cur.fetchone()
+            conn.commit()
+            return nova
+    except psycopg2.IntegrityError:
+        conn.rollback()
+        raise HTTPException(status_code=400, detail="Usuário inválido")
+    except Exception as e:
+        conn.rollback()
+        raise HTTPException(status_code=500, detail=str(e))
+    finally:
+        conn.close()
+
+@app.post("/notificacoes/broadcast", tags=["Admin"])
+async def enviar_broadcast(broadcast: BroadcastCreate, current_user: dict = Depends(require_admin)):
+    conn = get_db_connection()
+    if not conn:
+        raise HTTPException(status_code=500, detail="Database connection failed")
+        
+    try:
+        with conn.cursor() as cur:
+            # Pega todos os IDs de usuários do sistema
+            cur.execute("SELECT id FROM users")
+            users = cur.fetchall()
+            
+            if not users:
+                return {"message": "Nenhum usuário encontrado"}
+                
+            # Insere a mesma notificação para todos
+            values = []
+            for (user_id,) in users:
+                values.extend([user_id, broadcast.titulo, broadcast.mensagem, broadcast.tipo])
+            
+            query = f"""
+                INSERT INTO notificacoes (user_id, titulo, mensagem, tipo) 
+                VALUES {','.join(['(%s, %s, %s, %s)'] * len(users))}
+            """
+            cur.execute(query, values)
+            conn.commit()
+            return {"message": f"Notificação enviada para {len(users)} usuários"}
+    except Exception as e:
+        conn.rollback()
+        raise HTTPException(status_code=500, detail=str(e))
+    finally:
+        conn.close()

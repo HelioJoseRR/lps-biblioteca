@@ -1,4 +1,5 @@
 from fastapi import FastAPI, Request, Response
+from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 import httpx
 
@@ -11,25 +12,25 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-SERVICES = {services_json}
+SERVICES = {{ services_json }}
 
 # Build a mapping of service-name -> internal docker URL
-SERVICE_MAP = {{s: f"http://{{s}}:8000" for s in SERVICES}}
+SERVICE_MAP = {s: f"http://{s}:8000" for s in SERVICES}
 
 @app.get("/")
 def root():
-    return {{"status": "Gateway Operacional", "servicos_disponiveis": SERVICES}}
+    return {"status": "Gateway Operacional", "servicos_disponiveis": SERVICES}
 
-@app.api_route("/{{service}}/{{path:path}}", methods=["GET", "POST", "PUT", "DELETE", "PATCH"])
+@app.api_route("/{service}/{path:path}", methods=["GET", "POST", "PUT", "DELETE", "PATCH"])
 async def proxy(service: str, path: str, request: Request):
     if service not in SERVICE_MAP:
-        return {{"error": f"Serviço '{{service}}' não encontrado"}}, 404
+        return JSONResponse(status_code=404, content={"error": f"Serviço '{service}' não encontrado"})
 
-    target_url = f"{{SERVICE_MAP[service]}}/{{path}}"
+    target_url = f"{SERVICE_MAP[service]}/{path}"
 
     # Forward query params
     if request.url.query:
-        target_url += f"?{{request.url.query}}"
+        target_url += f"?{request.url.query}"
 
     # Read body for non-GET requests
     body = await request.body()
@@ -52,8 +53,7 @@ async def proxy(service: str, path: str, request: Request):
                 headers=dict(response.headers),
             )
         except httpx.ConnectError:
-            return Response(
-                content=f'{{"error": "Serviço {{service}} indisponível"}}',
+            return JSONResponse(
+                content={"error": f"Serviço {service} indisponível"},
                 status_code=503,
-                media_type="application/json",
             )

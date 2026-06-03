@@ -38,22 +38,45 @@ class Livro(BaseModel):
     tipo_edicao: Optional[str] = None
     capa_url: Optional[str] = None
 
-@app.get("/livros", response_model=List[Livro], tags=["Catálogo"])
+@app.get("/livros", tags=["Catálogo"])
 async def listar_livros(
-    busca: Optional[str] = Query(None, description="Busca por título ou autor")
+    busca: Optional[str] = Query(None, description="Busca por título ou autor"),
+    page: int = Query(1, ge=1),
+    per_page: int = Query(20, ge=1, le=100)
 ):
     conn = get_db_connection()
     cur = conn.cursor()
     try:
-        if busca:
-            query = "SELECT id, titulo, autor, ano, categoria, sinopse, tipo_edicao, capa_url FROM livros WHERE LOWER(titulo) LIKE %s OR LOWER(autor) LIKE %s"
-            termo = f"%{busca.lower()}%"
-            cur.execute(query, (termo, termo))
-        else:
-            cur.execute("SELECT id, titulo, autor, ano, categoria, sinopse, tipo_edicao, capa_url FROM livros")
+        offset = (page - 1) * per_page
         
+        count_query = "SELECT COUNT(*) FROM livros"
+        query = "SELECT id, titulo, autor, ano, categoria, sinopse, tipo_edicao, capa_url FROM livros"
+        
+        if busca:
+            count_query += " WHERE LOWER(titulo) LIKE %s OR LOWER(autor) LIKE %s"
+            query += " WHERE LOWER(titulo) LIKE %s OR LOWER(autor) LIKE %s"
+            termo = f"%{busca.lower()}%"
+            cur.execute(count_query, (termo, termo))
+            total = cur.fetchone()["count"]
+            
+            query += " ORDER BY id DESC LIMIT %s OFFSET %s"
+            cur.execute(query, (termo, termo, per_page, offset))
+        else:
+            cur.execute(count_query)
+            total = cur.fetchone()["count"]
+            
+            query += " ORDER BY id DESC LIMIT %s OFFSET %s"
+            cur.execute(query, (per_page, offset))
+            
         livros = cur.fetchall()
-        return livros
+        
+        return {
+            "items": livros,
+            "total": total,
+            "page": page,
+            "per_page": per_page,
+            "pages": (total + per_page - 1) // per_page
+        }
     finally:
         cur.close()
         conn.close()
@@ -106,6 +129,11 @@ async def adicionar_livro(
     conn = get_db_connection()
     cur = conn.cursor()
     try:
+        # Check duplicity
+        cur.execute("SELECT id FROM livros WHERE LOWER(titulo) = LOWER(%s) AND LOWER(autor) = LOWER(%s)", (titulo, autor))
+        if cur.fetchone():
+            raise HTTPException(status_code=409, detail="Livro com mesmo título e autor já existe no catálogo")
+
         query = """INSERT INTO livros (titulo, autor, ano, categoria, sinopse, tipo_edicao, capa_url) 
                    VALUES (%s, %s, %s, %s, %s, %s, %s) 
                    RETURNING id, titulo, autor, ano, categoria, sinopse, tipo_edicao, capa_url"""
@@ -116,6 +144,104 @@ async def adicionar_livro(
     except Exception as e:
         conn.rollback()
         raise HTTPException(status_code=500, detail=str(e))
+    finally:
+        cur.close()
+        conn.close()
+
+@app.put("/livros/{livro_id}", response_model=Livro, tags=["Catálogo"])
+async def editar_livro(
+    livro_id: int,
+    titulo: Optional[str] = Form(None, max_length=255),
+    autor: Optional[str] = Form(None, max_length=255),
+    ano: Optional[int] = Form(None, ge=1000, le=2100),
+    categoria: Optional[str] = Form(None, max_length=100),
+    sinopse: Optional[str] = Form(None, max_length=2000),
+    tipo_edicao: Optional[str] = Form(None, max_length=50),
+    capa: Optional[UploadFile] = File(None)
+):
+    conn = get_db_connection()
+    cur = conn.cursor()
+    try:
+        # Verifica se o livro existe
+        cur.execute("SELECT id, titulo, autor, ano, categoria, sinopse, tipo_edicao, capa_url FROM livros WHERE id = %s", (livro_id,))
+        livro_atual = cur.fetchone()
+        if not livro_atual:
+            raise HTTPException(status_code=404, detail="Livro não encontrado")
+
+        # Monta os campos a atualizar (apenas os que foram enviados)
+        campos = {}
+        if titulo is not None:
+            campos["titulo"] = titulo
+        if autor is not None:
+            campos["autor"] = autor
+        if ano is not None:
+            campos["ano"] = ano
+        if categoria is not None:
+            campos["categoria"] = categoria
+        if sinopse is not None:
+            campos["sinopse"] = sinopse
+        if tipo_edicao is not None:
+            campos["tipo_edicao"] = tipo_edicao
+        if capa and capa.filename:
+            file_path = f"uploads/{capa.filename}"
+            with open(file_path, "wb") as buffer:
+                shutil.copyfileobj(capa.file, buffer)
+            campos["capa_url"] = f"/uploads/{capa.filename}"
+
+        if not campos:
+            raise HTTPException(status_code=400, detail="Nenhum campo para atualizar")
+
+        set_clause = ", ".join([f"{k} = %s" for k in campos.keys()])
+        values = list(campos.values()) + [livro_id]
+        query = f"UPDATE livros SET {set_clause} WHERE id = %s RETURNING id, titulo, autor, ano, categoria, sinopse, tipo_edicao, capa_url"
+        cur.execute(query, values)
+        livro_atualizado = cur.fetchone()
+        conn.commit()
+        return livro_atualizado
+    except HTTPException:
+        raise
+    except Exception as e:
+        conn.rollback()
+        raise HTTPException(status_code=500, detail=str(e))
+    finally:
+        cur.close()
+        conn.close()
+
+@app.delete("/livros/{livro_id}", tags=["Catálogo"])
+async def remover_livro(livro_id: int):
+    conn = get_db_connection()
+    cur = conn.cursor()
+    try:
+        # Verifica se o livro existe
+        cur.execute("SELECT id FROM livros WHERE id = %s", (livro_id,))
+        if not cur.fetchone():
+            raise HTTPException(status_code=404, detail="Livro não encontrado")
+
+        # Verifica se o livro está emprestado
+        cur.execute("SELECT id FROM emprestimos WHERE book_id = %s", (livro_id,))
+        if cur.fetchone():
+            raise HTTPException(status_code=409, detail="Não é possível excluir: livro está emprestado no momento")
+
+        cur.execute("DELETE FROM livros WHERE id = %s", (livro_id,))
+        conn.commit()
+        return {"message": "Livro excluído com sucesso"}
+    except HTTPException:
+        raise
+    except Exception as e:
+        conn.rollback()
+        raise HTTPException(status_code=500, detail=str(e))
+    finally:
+        cur.close()
+        conn.close()
+
+@app.get("/livros/categorias", response_model=List[str], tags=["Catálogo"])
+async def listar_categorias():
+    conn = get_db_connection()
+    cur = conn.cursor()
+    try:
+        cur.execute("SELECT DISTINCT categoria FROM livros WHERE categoria IS NOT NULL ORDER BY categoria")
+        categorias = [row["categoria"] for row in cur.fetchall()]
+        return categorias
     finally:
         cur.close()
         conn.close()

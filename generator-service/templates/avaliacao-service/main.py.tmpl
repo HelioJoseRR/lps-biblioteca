@@ -1,0 +1,195 @@
+from fastapi import FastAPI, Depends, HTTPException, status, Query
+from fastapi.security import OAuth2PasswordBearer
+from pydantic import BaseModel
+from typing import List, Optional
+from jose import JWTError, jwt
+import psycopg2
+from psycopg2.extras import RealDictCursor
+import os
+
+app = FastAPI(title="Serviço de Avaliações", description="Gerenciamento de avaliações e resenhas de livros.")
+
+SECRET_KEY = "chave-secreta-jwt"
+ALGORITHM = "HS256"
+
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="auth/login")
+
+def get_db_connection():
+    try:
+        conn = psycopg2.connect(
+            host=os.environ.get("DB_HOST", "db"),
+            database=os.environ.get("DB_NAME", "library_db"),
+            user=os.environ.get("DB_USER", "postgres"),
+            password=os.environ.get("DB_PASS", "postgres")
+        )
+        return conn
+    except Exception as e:
+        print(f"Erro ao conectar ao banco de dados: {e}")
+        return None
+
+def get_current_user(token: str = Depends(oauth2_scheme)):
+    credentials_exception = HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail="Credenciais inválidas",
+        headers={"WWW-Authenticate": "Bearer"},
+    )
+    try:
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        user_id: str = payload.get("sub")
+        role: str = payload.get("role")
+        if user_id is None:
+            raise credentials_exception
+        return {"id": int(user_id), "role": role}
+    except JWTError:
+        raise credentials_exception
+
+class AvaliacaoInput(BaseModel):
+    nota: int
+    comentario: Optional[str] = None
+
+@app.post("/avaliacoes/{book_id}", tags=["Usuário"])
+async def criar_ou_atualizar_avaliacao(book_id: int, avaliacao: AvaliacaoInput, current_user: dict = Depends(get_current_user)):
+    if avaliacao.nota < 1 or avaliacao.nota > 5:
+        raise HTTPException(status_code=400, detail="A nota deve ser entre 1 e 5")
+        
+    conn = get_db_connection()
+    if not conn:
+        raise HTTPException(status_code=500, detail="Database connection failed")
+        
+    try:
+        with conn.cursor(cursor_factory=RealDictCursor) as cur:
+            # Verifica se o livro existe
+            cur.execute("SELECT id FROM livros WHERE id = %s", (book_id,))
+            if not cur.fetchone():
+                raise HTTPException(status_code=404, detail="Livro não encontrado")
+                
+            query = """
+            INSERT INTO avaliacoes (user_id, book_id, nota, comentario) 
+            VALUES (%s, %s, %s, %s) 
+            ON CONFLICT (user_id, book_id) 
+            DO UPDATE SET nota = EXCLUDED.nota, comentario = EXCLUDED.comentario, created_at = CURRENT_TIMESTAMP
+            RETURNING *
+            """
+            cur.execute(query, (current_user['id'], book_id, avaliacao.nota, avaliacao.comentario))
+            av = cur.fetchone()
+            conn.commit()
+            return av
+    except HTTPException:
+        raise
+    except Exception as e:
+        conn.rollback()
+        raise HTTPException(status_code=500, detail=str(e))
+    finally:
+        conn.close()
+
+@app.get("/avaliacoes/me", tags=["Usuário"])
+async def minhas_avaliacoes(current_user: dict = Depends(get_current_user)):
+    conn = get_db_connection()
+    if not conn:
+        raise HTTPException(status_code=500, detail="Database connection failed")
+        
+    try:
+        with conn.cursor(cursor_factory=RealDictCursor) as cur:
+            cur.execute("""
+                SELECT a.*, l.titulo, l.autor 
+                FROM avaliacoes a 
+                JOIN livros l ON a.book_id = l.id 
+                WHERE a.user_id = %s 
+                ORDER BY a.created_at DESC
+            """, (current_user['id'],))
+            return cur.fetchall()
+    finally:
+        conn.close()
+
+@app.get("/avaliacoes/top", tags=["Público"])
+async def livros_top():
+    conn = get_db_connection()
+    if not conn:
+        raise HTTPException(status_code=500, detail="Database connection failed")
+        
+    try:
+        with conn.cursor(cursor_factory=RealDictCursor) as cur:
+            query = """
+            SELECT l.id as book_id, l.titulo, l.autor, l.capa_url, 
+                   AVG(a.nota) as media, COUNT(a.id) as total_avaliacoes
+            FROM livros l
+            JOIN avaliacoes a ON l.id = a.book_id
+            GROUP BY l.id, l.titulo, l.autor, l.capa_url
+            ORDER BY media DESC, total_avaliacoes DESC
+            LIMIT 10
+            """
+            cur.execute(query)
+            res = cur.fetchall()
+            for r in res:
+                if r['media']:
+                    r['media'] = round(float(r['media']), 2)
+            return res
+    finally:
+        conn.close()
+
+@app.get("/avaliacoes/{book_id}", tags=["Público"])
+async def listar_avaliacoes(book_id: int):
+    conn = get_db_connection()
+    if not conn:
+        raise HTTPException(status_code=500, detail="Database connection failed")
+        
+    try:
+        with conn.cursor(cursor_factory=RealDictCursor) as cur:
+            query = """
+            SELECT a.id, a.nota, a.comentario, a.created_at, u.username 
+            FROM avaliacoes a
+            JOIN users u ON a.user_id = u.id
+            WHERE a.book_id = %s
+            ORDER BY a.created_at DESC
+            """
+            cur.execute(query, (book_id,))
+            return cur.fetchall()
+    finally:
+        conn.close()
+
+@app.get("/avaliacoes/{book_id}/media", tags=["Público"])
+async def media_avaliacoes(book_id: int):
+    conn = get_db_connection()
+    if not conn:
+        raise HTTPException(status_code=500, detail="Database connection failed")
+        
+    try:
+        with conn.cursor(cursor_factory=RealDictCursor) as cur:
+            cur.execute("SELECT AVG(nota) as media, COUNT(id) as total FROM avaliacoes WHERE book_id = %s", (book_id,))
+            res = cur.fetchone()
+            if not res or res['total'] == 0:
+                return {"book_id": book_id, "media": 0.0, "total": 0}
+            return {
+                "book_id": book_id, 
+                "media": round(float(res['media']), 2), 
+                "total": res['total']
+            }
+    finally:
+        conn.close()
+
+@app.delete("/avaliacoes/{book_id}", tags=["Usuário", "Admin"])
+async def remover_avaliacao(book_id: int, user_id: Optional[int] = Query(None, description="Apenas Admin: remover de outro usuário"), current_user: dict = Depends(get_current_user)):
+    conn = get_db_connection()
+    if not conn:
+        raise HTTPException(status_code=500, detail="Database connection failed")
+        
+    try:
+        with conn.cursor() as cur:
+            target_user_id = current_user['id']
+            if current_user['role'] == 'admin' and user_id is not None:
+                target_user_id = user_id
+                
+            cur.execute("DELETE FROM avaliacoes WHERE user_id = %s AND book_id = %s RETURNING id", (target_user_id, book_id))
+            if not cur.fetchone():
+                conn.rollback()
+                raise HTTPException(status_code=404, detail="Avaliação não encontrada ou sem permissão")
+                
+            conn.commit()
+            return {"message": "Avaliação removida com sucesso"}
+    except HTTPException:
+        raise
+    except Exception as e:
+        conn.rollback()
+        raise HTTPException(status_code=500, detail=str(e))
+    finally:
+        conn.close()
