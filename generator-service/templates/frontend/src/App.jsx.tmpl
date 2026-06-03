@@ -244,6 +244,7 @@ function App() {
   const [hoverNota, setHoverNota] = useState(0);
   const [mediaLivro, setMediaLivro] = useState({ media: 0, total: 0 });
   const [topLivros, setTopLivros] = useState([]);
+  const [sortAvaliacoes, setSortAvaliacoes] = useState('recentes');
 
   // Estatisticas (F-5)
   const [estatisticas, setEstatisticas] = useState(null);
@@ -732,7 +733,12 @@ function App() {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       if (res.ok) {
-        showToast('Empréstimo realizado com sucesso!');
+        showToast(
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
+            <span>Empréstimo realizado com sucesso!</span>
+            <small style={{ opacity: 0.8 }}>Você pode desfazer a qualquer momento na opção Devolver.</small>
+          </div>
+        );
         fetchBorrowedBooks();
         fetchMyLoan();
       } else {
@@ -1035,7 +1041,7 @@ function App() {
                     </button>
                     {isUserMenuOpen && (
                       <div className="user-dropdown-menu">
-                        <button className="user-dropdown-item" onClick={() => { setView('landing'); setIsUserMenuOpen(false); setIsMenuOpen(false); }}>
+                        <button className="user-dropdown-item" onClick={() => { setView('profile'); setIsUserMenuOpen(false); setIsMenuOpen(false); }}>
                           {Icons.user} <span>Meu Perfil</span>
                         </button>
                         <div className="user-dropdown-divider"></div>
@@ -1157,10 +1163,29 @@ function App() {
                     <button className="btn-action" onClick={() => submitAvaliacao(selectedBook.id)}>Enviar Avaliação</button>
                   </div>
                 )}
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+                  <h4 style={{ margin: 0, color: '#1e293b' }}>Todas as Avaliações ({avaliacoes.length})</h4>
+                  {avaliacoes.length > 1 && (
+                    <select 
+                      value={sortAvaliacoes} 
+                      onChange={(e) => setSortAvaliacoes(e.target.value)}
+                      style={{ padding: '0.4rem 0.8rem', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '0.85rem' }}
+                    >
+                      <option value="recentes">Mais Recentes</option>
+                      <option value="maiores">Maiores Notas</option>
+                      <option value="menores">Menores Notas</option>
+                    </select>
+                  )}
+                </div>
                 <div className="avaliacoes-list" style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
                   {avaliacoes.length === 0 ? (
                     <p style={{color: '#64748b'}}>Nenhuma avaliação para este livro ainda.</p>
-                  ) : avaliacoes.map(av => (
+                  ) : [...avaliacoes].sort((a, b) => {
+                    if (sortAvaliacoes === 'recentes') return new Date(b.created_at) - new Date(a.created_at);
+                    if (sortAvaliacoes === 'maiores') return b.nota - a.nota;
+                    if (sortAvaliacoes === 'menores') return a.nota - b.nota;
+                    return 0;
+                  }).map(av => (
                     <div key={av.id} className="avaliacao-card" style={{ background: '#fff', border: '1px solid #e2e8f0', padding: '1.25rem', borderRadius: '12px' }}>
                       <div className="avaliacao-header" style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem', alignItems: 'center' }}>
                         <div style={{display: 'flex', alignItems: 'center', gap: '0.5rem'}}>
@@ -1236,6 +1261,66 @@ function App() {
             </form>
           </div>
         </main>
+      ) : view === 'profile' && user ? (
+        <main className="fade-in padding-main">
+          <div className="content">
+            <section className="section-header">
+              <h2>Meu Perfil</h2>
+              <div className="title-underline"></div>
+            </section>
+            <div className="profile-card" style={{ background: '#fff', borderRadius: '12px', padding: '2rem', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)', border: '1px solid #e2e8f0', display: 'flex', alignItems: 'center', gap: '2rem', marginBottom: '2rem' }}>
+              <div className="profile-avatar-large" style={{ width: '80px', height: '80px', borderRadius: '50%', background: '#6366f1', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '2.5rem', fontWeight: 'bold' }}>
+                {user.username.charAt(0).toUpperCase()}
+              </div>
+              <div className="profile-details">
+                <h3 style={{ margin: '0 0 0.5rem 0', fontSize: '1.5rem', color: '#0f172a' }}>{user.username}</h3>
+                <p style={{ margin: 0, color: '#64748b', fontSize: '1rem' }}>{user.email}</p>
+                <div style={{ marginTop: '1rem', display: 'flex', gap: '0.5rem' }}>
+                  <span className={`role-badge ${user.role}`}>{user.role.toUpperCase()}</span>
+                </div>
+              </div>
+            </div>
+            
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1.5rem' }}>
+              {enabledFeatures.includes('emprestimo-service') && (
+                <button className="stat-card" onClick={() => setView('my-loan')} style={{ border: 'none', cursor: 'pointer', textAlign: 'left' }}>
+                  <div className="stat-icon" style={{ background: '#dbeafe', color: '#3b82f6' }}>{Icons.bookOpen}</div>
+                  <div className="stat-info">
+                    <h3>Empréstimos Ativos</h3>
+                    <p style={{ color: '#3b82f6', fontWeight: 'bold', fontSize: '1.25rem' }}>{myLoan ? '1' : '0'}</p>
+                  </div>
+                </button>
+              )}
+              {enabledFeatures.includes('auth-service') && (
+                <button className="stat-card" onClick={() => setView('favorites')} style={{ border: 'none', cursor: 'pointer', textAlign: 'left' }}>
+                  <div className="stat-icon" style={{ background: '#fce7f3', color: '#ec4899' }}>{Icons.heart}</div>
+                  <div className="stat-info">
+                    <h3>Favoritos</h3>
+                    <p style={{ color: '#ec4899', fontWeight: 'bold', fontSize: '1.25rem' }}>{favorites.length}</p>
+                  </div>
+                </button>
+              )}
+              {enabledFeatures.includes('auth-service') && (
+                <button className="stat-card" onClick={() => setView('collections')} style={{ border: 'none', cursor: 'pointer', textAlign: 'left' }}>
+                  <div className="stat-icon" style={{ background: '#fef3c7', color: '#f59e0b' }}>{Icons.folder}</div>
+                  <div className="stat-info">
+                    <h3>Coleções</h3>
+                    <p style={{ color: '#f59e0b', fontWeight: 'bold', fontSize: '1.25rem' }}>{myCollections.length}</p>
+                  </div>
+                </button>
+              )}
+              {enabledFeatures.includes('multa-service') && (
+                <button className="stat-card" onClick={() => setView('multas')} style={{ border: 'none', cursor: 'pointer', textAlign: 'left' }}>
+                  <div className="stat-icon" style={{ background: '#fee2e2', color: '#dc2626' }}>{Icons.dollar}</div>
+                  <div className="stat-info">
+                    <h3>Multas</h3>
+                    <p style={{ color: '#dc2626', fontWeight: 'bold', fontSize: '1.25rem' }}>{multas.length}</p>
+                  </div>
+                </button>
+              )}
+            </div>
+          </div>
+        </main>
       ) : view === 'my-loan' ? (
         <main className="fade-in padding-main">
           <div className="content">
@@ -1273,7 +1358,24 @@ function App() {
                       <span className="book-category">{livro.categoria || 'Geral'}</span>
                       <h3 className="book-title">{livro.titulo}</h3>
                       <p className="book-author">{livro.autor}</p>
-                      <button className="btn-action btn-return" style={{marginTop: '1rem', width: '100%'}} onClick={(e) => { e.stopPropagation(); handleReturn(livro.id); }}>Devolver Livro</button>
+                      
+                      {/* Overdue logic */}
+                      {(() => {
+                        const dueDate = new Date(myLoan.data_emprestimo);
+                        dueDate.setDate(dueDate.getDate() + 14);
+                        const isOverdue = new Date() > dueDate;
+                        const daysLeft = Math.ceil((dueDate - new Date()) / (1000 * 60 * 60 * 24));
+                        return (
+                          <div style={{ margin: '0.75rem 0', padding: '0.5rem', background: isOverdue ? '#fee2e2' : '#f0fdf4', border: `1px solid ${isOverdue ? '#fca5a5' : '#bbf7d0'}`, borderRadius: '6px' }}>
+                            <strong style={{ display: 'block', fontSize: '0.85rem', color: isOverdue ? '#dc2626' : '#16a34a' }}>
+                              {Icons.calendar} {isOverdue ? `Atrasado em ${-daysLeft} dias!` : `Devolução em ${daysLeft} dias`}
+                            </strong>
+                            <small style={{ color: '#64748b' }}>Data limite: {dueDate.toLocaleDateString()}</small>
+                          </div>
+                        );
+                      })()}
+                      
+                      <button className="btn-action btn-return" style={{marginTop: '0.5rem', width: '100%'}} onClick={(e) => { e.stopPropagation(); handleReturn(livro.id); }}>Devolver Livro</button>
                     </div>
                   </article>
                 ))}
@@ -1653,17 +1755,33 @@ function App() {
                   <tbody>
                     {allLoans.length === 0 ? (
                       <tr><td colSpan="5" style={{textAlign: 'center', padding: '2rem'}}>Nenhum empréstimo ativo.</td></tr>
-                    ) : allLoans.map(l => (
+                    ) : allLoans.map(l => {
+                      const dueDate = new Date(l.data_emprestimo);
+                      dueDate.setDate(dueDate.getDate() + 14);
+                      const isOverdue = new Date() > dueDate;
+                      const daysLeft = Math.ceil((dueDate - new Date()) / (1000 * 60 * 60 * 24));
+                      
+                      return (
                       <tr key={l.id}>
                         <td>{l.id}</td>
                         <td>{l.username} <br/><small style={{opacity:0.7}}>{l.email}</small></td>
                         <td>{l.titulo}</td>
-                        <td>{new Date(l.data_emprestimo).toLocaleDateString()}</td>
+                        <td>
+                          {new Date(l.data_emprestimo).toLocaleDateString()}
+                          <div style={{ marginTop: '0.25rem' }}>
+                            {isOverdue ? (
+                              <span style={{ background: '#fee2e2', color: '#dc2626', padding: '0.2rem 0.5rem', borderRadius: '4px', fontSize: '0.75rem', fontWeight: 'bold' }}>Atrasado {-daysLeft} dias</span>
+                            ) : (
+                              <span style={{ background: '#dcfce7', color: '#16a34a', padding: '0.2rem 0.5rem', borderRadius: '4px', fontSize: '0.75rem', fontWeight: 'bold' }}>Faltam {daysLeft} dias</span>
+                            )}
+                          </div>
+                        </td>
                         <td>
                           <button className="btn-action btn-sm btn-outline" onClick={() => handleReturn(l.book_id)}>Forçar Devolução</button>
                         </td>
                       </tr>
-                    ))}
+                      );
+                    })}
                   </tbody>
                 </table>
               </div>
@@ -1833,12 +1951,25 @@ function App() {
                   <p>Carregando acervo...</p>
                 </div>
               ) : livros.length === 0 ? (
-                <div className="empty-state">
-                  <div className="empty-icon">{Icons.search}</div>
-                  <h3>Nenhum livro encontrado</h3>
-                  <p>Não encontramos nenhum resultado para "{busca}".</p>
-                  <button className="btn-cancel" style={{marginTop: '1.5rem'}} onClick={() => setBusca('')}>
-                    Limpar Busca
+                <div className="empty-state" style={{ padding: '3rem 1.5rem' }}>
+                  <div className="empty-icon" style={{ background: '#f8fafc', color: '#94a3b8', width: '80px', height: '80px', fontSize: '2.5rem' }}>🤔</div>
+                  <h3>Puxa, não encontramos o que você procura</h3>
+                  <p style={{ maxWidth: '400px', margin: '0.5rem auto 2rem' }}>
+                    Nenhum resultado para "{busca}". Verifique se você digitou corretamente ou explore algumas das nossas categorias mais populares:
+                  </p>
+                  <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', justifyContent: 'center', marginBottom: '2rem' }}>
+                    {['Ficção Científica', 'Tecnologia', 'Fantasia', 'Romance'].map(cat => (
+                      <button 
+                        key={cat} 
+                        className="btn-action btn-sm btn-outline" 
+                        onClick={() => { setBusca(''); setCategoriaFilter(cat); setPagination({...pagination, page: 1}); }}
+                      >
+                        {cat}
+                      </button>
+                    ))}
+                  </div>
+                  <button className="btn-cancel" onClick={() => { setBusca(''); setCategoriaFilter(''); }}>
+                    Limpar Filtros e Busca
                   </button>
                 </div>
               ) : (
