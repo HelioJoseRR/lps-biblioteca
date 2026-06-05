@@ -1859,36 +1859,7 @@ function App() {
 
       ) : (
         <div className="fade-in">
-          {/* ===== HERO ===== */}
-          <header className="hero">
-            <div className="hero-shapes">
-              <div className="hero-shape"></div>
-              <div className="hero-shape"></div>
-              <div className="hero-shape"></div>
-            </div>
-            <div className="hero-content">
-              <div className="hero-badge">
-                {Icons.sparkles}
-                <span>Catálogo Digital</span>
-              </div>
-              <h1>Sua biblioteca,<br />em qualquer lugar.</h1>
-              <p>Explore, descubra e gerencie títulos e autores com apenas um clique.</p>
-              <div className="hero-stats">
-                <div className="hero-stat">
-                  <div className="stat-value">{livros.length}</div>
-                  <div className="stat-label">Títulos</div>
-                </div>
-                <div className="hero-stat">
-                  <div className="stat-value">{new Set(livros.map(l => l.autor)).size}</div>
-                  <div className="stat-label">Autores</div>
-                </div>
-                <div className="hero-stat">
-                  <div className="stat-value">{new Set(livros.map(l => l.categoria).filter(Boolean)).size}</div>
-                  <div className="stat-label">Categorias</div>
-                </div>
-              </div>
-            </div>
-          </header>
+          {/* ===== HERO REMOVED ===== */}
 
           {/* ===== STICKY CONTROLS ===== */}
           <nav className="sticky-controls" aria-label="Controles de pesquisa e adição">
