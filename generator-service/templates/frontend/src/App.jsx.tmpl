@@ -1,3 +1,5 @@
+"use client"
+
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { enabledFeatures } from './features'
 import Estatisticas from './components/Estatisticas'
@@ -187,8 +189,11 @@ function App() {
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
   const userMenuRef = useRef(null);
   const [view, setView] = useState(() => {
-    const hash = window.location.hash.replace('#/', '');
-    return hash || sessionStorage.getItem('currentView') || 'landing';
+    if (typeof window !== 'undefined') {
+      const hash = window.location.hash.replace('#/', '');
+      return hash || sessionStorage.getItem('currentView') || 'landing';
+    }
+    return 'landing';
   });
 
   // Close user dropdown on outside click
@@ -251,6 +256,7 @@ function App() {
   
   // Persist login state
   const [user, setUser] = useState(() => {
+    if (typeof window === 'undefined') return null;
     const saved = sessionStorage.getItem('user');
     try {
       return saved && saved !== "undefined" ? JSON.parse(saved) : null;
@@ -261,7 +267,7 @@ function App() {
   });
   const isLoggedIn = !!user;
   const isAdmin = user && user.role === 'admin';
-  const token = sessionStorage.getItem('token');
+  const token = typeof window !== 'undefined' ? sessionStorage.getItem('token') : null;
   
   const [showAddModal, setShowAddModal] = useState(false);
   const [toast, setToast] = useState(null);

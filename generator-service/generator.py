@@ -48,12 +48,13 @@ def create_frontend(project_dir, features):
     
     # Root files
     write_file(os.path.join(frontend_dir, "package.json"), read_template("frontend", "package.json.tmpl"))
-    write_file(os.path.join(frontend_dir, "vite.config.js"), read_template("frontend", "vite.config.js.tmpl"))
-    write_file(os.path.join(frontend_dir, "index.html"), read_template("frontend", "index.html.tmpl"))
     write_file(os.path.join(frontend_dir, "Dockerfile"), read_template("frontend", "Dockerfile.tmpl"))
     
+    # src/app files
+    write_file(os.path.join(frontend_dir, "src", "app", "layout.jsx"), read_template("frontend", "src/app/layout.jsx.tmpl"))
+    write_file(os.path.join(frontend_dir, "src", "app", "page.jsx"), read_template("frontend", "src/app/page.jsx.tmpl"))
+    
     # src files
-    write_file(os.path.join(frontend_dir, "src", "main.jsx"), read_template("frontend", "src/main.jsx.tmpl"))
     write_file(os.path.join(frontend_dir, "src", "App.jsx"), read_template("frontend", "src/App.jsx.tmpl"))
     write_file(os.path.join(frontend_dir, "src", "App.css"), read_template("frontend", "src/App.css.tmpl"))
     write_file(os.path.join(frontend_dir, "src", "features.js"), f"export const enabledFeatures = {json.dumps(features)};")
