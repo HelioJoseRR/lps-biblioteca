@@ -1,0 +1,15 @@
+import React from 'react';
+
+export default function Button({ children, variant = 'primary', className = '', ...props }) {
+  const baseClass = 'btn-action';
+  const variantClass = variant === 'outline' ? 'btn-outline' : variant === 'cancel' ? 'btn-cancel' : '';
+  
+  return (
+    <button 
+      className={`${baseClass} ${variantClass} ${className}`.trim()} 
+      {...props}
+    >
+      {children}
+    </button>
+  );
+}

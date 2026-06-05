@@ -178,7 +178,24 @@ CREATE TABLE IF NOT EXISTS favorites (
     user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
     book_id INTEGER NOT NULL,
     PRIMARY KEY (user_id, book_id)
-);"""
+);
+
+INSERT INTO users (username, email, password_hash, role) 
+SELECT 'João Leitor', 'joao@example.com', '123456', 'user' 
+WHERE NOT EXISTS (SELECT 1 FROM users WHERE email = 'joao@example.com');
+
+INSERT INTO collections (user_id, name, description, is_public) VALUES 
+(1, 'Favoritos do Admin', 'Livros preferidos', true),
+(2, 'Leituras de Férias', 'Para ler na praia', true)
+ON CONFLICT DO NOTHING;
+
+INSERT INTO collection_books (collection_id, book_id) VALUES 
+(1, 1), (1, 2), (2, 2)
+ON CONFLICT DO NOTHING;
+
+INSERT INTO favorites (user_id, book_id) VALUES 
+(1, 1), (2, 2)
+ON CONFLICT DO NOTHING;"""
 
         services_sql = """CREATE TABLE IF NOT EXISTS livros (
     id SERIAL PRIMARY KEY,
@@ -192,7 +209,10 @@ CREATE TABLE IF NOT EXISTS favorites (
 );
 INSERT INTO livros (titulo, autor, ano, categoria, sinopse, tipo_edicao) VALUES 
 ('O Senhor dos Anéis', 'J.R.R. Tolkien', 1954, 'Fantasia', 'A grande jornada para destruir o Um Anel.', 'Capa Dura'),
-('1984', 'George Orwell', 1949, 'Ficção Científica', 'Uma distopia onde o Grande Irmão tudo vê.', 'Bolso');"""
+('1984', 'George Orwell', 1949, 'Ficção Científica', 'Uma distopia onde o Grande Irmão tudo vê.', 'Bolso'),
+('Dom Quixote', 'Miguel de Cervantes', 1605, 'Romance', 'As aventuras do fidalgo engenhoso.', 'Edição de Luxo'),
+('O Pequeno Príncipe', 'Antoine de Saint-Exupéry', 1943, 'Infantil', 'O essencial é invisível aos olhos.', 'Capa Mole'),
+('O Alquimista', 'Paulo Coelho', 1988, 'Ficção', 'A jornada de um pastor em busca de sua Lenda Pessoal.', 'Capa Dura');"""
 
         if 'emprestimo-service' in features:
             services_sql += """
@@ -205,7 +225,12 @@ CREATE TABLE IF NOT EXISTS emprestimos (
     data_devolucao TIMESTAMP DEFAULT NULL
 );
 CREATE UNIQUE INDEX IF NOT EXISTS idx_emprestimos_user_ativo ON emprestimos (user_id) WHERE data_devolucao IS NULL;
-CREATE UNIQUE INDEX IF NOT EXISTS idx_emprestimos_book_ativo ON emprestimos (book_id) WHERE data_devolucao IS NULL;"""
+CREATE UNIQUE INDEX IF NOT EXISTS idx_emprestimos_book_ativo ON emprestimos (book_id) WHERE data_devolucao IS NULL;
+
+INSERT INTO emprestimos (user_id, book_id, data_emprestimo, prazo_devolucao, data_devolucao) VALUES 
+(1, 3, CURRENT_TIMESTAMP - INTERVAL '5 days', CURRENT_TIMESTAMP + INTERVAL '2 days', NULL),
+(2, 4, CURRENT_TIMESTAMP - INTERVAL '20 days', CURRENT_TIMESTAMP - INTERVAL '5 days', NULL),
+(1, 2, CURRENT_TIMESTAMP - INTERVAL '30 days', CURRENT_TIMESTAMP - INTERVAL '15 days', CURRENT_TIMESTAMP - INTERVAL '10 days');"""
 
         if 'multa-service' in features:
             services_sql += """
@@ -217,7 +242,11 @@ CREATE TABLE IF NOT EXISTS multas (
     motivo VARCHAR(255) NOT NULL,
     status VARCHAR(20) DEFAULT 'pendente',
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);"""
+);
+
+INSERT INTO multas (user_id, emprestimo_id, valor, motivo, status) VALUES 
+(2, 2, 15.50, 'Atraso na devolução de O Pequeno Príncipe', 'pendente'),
+(1, 3, 5.00, 'Danificação leve na capa', 'paga');"""
 
         if 'avaliacao-service' in features:
             services_sql += """
@@ -229,7 +258,14 @@ CREATE TABLE IF NOT EXISTS avaliacoes (
     comentario TEXT,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     UNIQUE(user_id, book_id)
-);"""
+);
+
+INSERT INTO avaliacoes (user_id, book_id, nota, comentario) VALUES 
+(1, 1, 5, 'Uma obra prima absoluta da literatura fantástica.'),
+(2, 1, 4, 'Muito bom, mas um pouco descritivo demais.'),
+(1, 2, 5, 'Assustadoramente atual.'),
+(2, 4, 5, 'Leitura obrigatória para todas as idades.')
+ON CONFLICT DO NOTHING;"""
 
         if 'notificacao-service' in features:
             services_sql += """
@@ -241,7 +277,12 @@ CREATE TABLE IF NOT EXISTS notificacoes (
     tipo VARCHAR(50) DEFAULT 'info',
     lida BOOLEAN DEFAULT false,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);"""
+);
+
+INSERT INTO notificacoes (user_id, titulo, mensagem, tipo, lida) VALUES 
+(1, 'Bem-vindo à LibLPS', 'Explore nosso catálogo e aproveite as leituras!', 'info', true),
+(2, 'Aviso de Multa', 'Você possui um livro em atraso. Por favor, regularize sua situação.', 'alerta', false),
+(1, 'Novo Livro Disponível', 'Adicionamos Dom Quixote ao catálogo.', 'info', false);"""
 
         sql_tmpl = read_template("geral", "init.sql.tmpl")
         sql_script = Template(sql_tmpl).render(auth_sql=auth_sql, services_sql=services_sql)

@@ -1,12 +1,12 @@
 :root {
-  --primary: #2563eb;
-  --primary-dark: #1d4ed8;
-  --secondary: #64748b;
-  --bg: #f8fafc;
+  --primary: #c25c3e;
+  --primary-dark: #a0462c;
+  --secondary: #8c7f76;
+  --bg: #fdfaf6;
   --card-bg: #ffffff;
-  --text-main: #1e293b;
-  --text-muted: #64748b;
-  --accent: #10b981;
+  --text-main: #3b302a;
+  --text-muted: #73675e;
+  --accent: #d48f44;
 }
 
 * { box-sizing: border-box; }
@@ -27,6 +27,12 @@ body {
   background-color: var(--bg);
   color: var(--text-main);
   -webkit-font-smoothing: antialiased;
+  line-height: 1.65;
+  letter-spacing: 0.01em;
+}
+
+p {
+  max-width: 75ch;
 }
 
 /* Navbar */
@@ -656,13 +662,14 @@ body {
 .input-group label { font-size: 0.9rem; font-weight: 700; color: #475569; }
 .input-group input, .input-group select, .input-group textarea { 
   padding: 0.8rem 1rem; 
-  border: 1.5px solid #e2e8f0; 
+  border: 1.5px solid #e5dfd8; 
   border-radius: 0.75rem; 
   font-size: 0.95rem;
   transition: all 0.2s;
-  background: white;
+  background: var(--card-bg);
   width: 100%;
   font-family: inherit;
+  color: var(--text-main);
 }
 .input-group textarea { resize: vertical; }
 .input-group input[type="file"] {
