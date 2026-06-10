@@ -230,25 +230,7 @@ O desenvolvimento do projeto seguiu a metodologia Scrum com sprints curtas, comb
      Pode ser gerado como diagrama Mermaid ou imagem.
      Deve mostrar: features obrigatórias, opcionais e suas dependências. -->
 
-```mermaid
-%%{init: {'theme': 'base', 'themeVariables': {'primaryColor': '#6366f1'}}}%%
-graph TD
-    classDef root fill:#1e40af,stroke:#1e3a8a,stroke-width:2px,color:#fff;
-    classDef mandatory fill:#16a34a,stroke:#14532d,stroke-width:2px,color:#fff;
-    classDef optional fill:#f59e0b,stroke:#78350f,stroke-width:2px,color:#fff;
-
-    LPS["🏛️ Biblioteca Online (Root)"]:::root
-
-    LPS -->|Mandatory| CORE["📚 catalogo-service"]:::mandatory
-    LPS -.->|Optional| AUTH["🔐 auth-service"]:::optional
-    LPS -.->|Optional| BUSCA["🔍 busca-service"]:::optional
-
-    AUTH -.->|Optional (Requires Auth)| EMP["🔄 emprestimo-service"]:::optional
-    EMP -.->|Optional (Requires Empréstimo)| MULTA["💰 multa-service"]:::optional
-    
-    AUTH -.->|Optional (Requires Auth)| NOTIF["🔔 notificacao-service"]:::optional
-    AUTH -.->|Optional (Requires Auth)| AVAL["⭐ avaliacao-service"]:::optional
-```
+![Diagrama Mermaid 0](img/mermaid_0.png)
 
 **Tabela de Features e Dependências:**
 
@@ -267,51 +249,7 @@ graph TD
 <!-- TODO: Inserir diagrama de Arquitetura em Camadas (Apresentação, Lógica, Dados)
      e o Diagrama de Variabilidade (pontos de variação e variantes). -->
 
-```mermaid
-graph TB
-    subgraph "Camada de Apresentação"
-        SELECTOR["Selector UI<br/>(React + Vite)"]
-        FRONTEND["Frontend Gerado<br/>(React + Nginx)"]
-    end
-
-    subgraph "Camada de Lógica / Serviços"
-        GENERATOR["Generator Service<br/>(Flask + Jinja2)"]
-        GATEWAY["API Gateway<br/>(FastAPI + httpx)"]
-        subgraph "Microsserviços (Pontos de Variação)"
-            S1["catalogo-service ●"]
-            S2["auth-service ○"]
-            S3["emprestimo-service ○"]
-            S4["multa-service ○"]
-            S5["notificacao-service ○"]
-            S6["busca-service ○"]
-            S7["avaliacao-service ○"]
-        end
-    end
-
-    subgraph "Camada de Dados"
-        DB["PostgreSQL 15<br/>(Schema dinâmico)"]
-    end
-
-    %% Relações e Protocolos
-    SELECTOR -->|"HTTP POST /generate<br/>(JSON)"| GENERATOR
-    FRONTEND -->|"HTTP REST<br/>(via proxy)"| GATEWAY
-    
-    GATEWAY -->|"HTTP REST :8000"| S1
-    GATEWAY -->|"HTTP REST :8000"| S2
-    GATEWAY -->|"HTTP REST :8000"| S3
-    GATEWAY -->|"HTTP REST :8000"| S4
-    GATEWAY -->|"HTTP REST :8000"| S5
-    GATEWAY -->|"HTTP REST :8000"| S6
-    GATEWAY -->|"HTTP REST :8000"| S7
-    
-    S1 -->|"TCP :5432 (SQL)"| DB
-    S2 -->|"TCP :5432 (SQL)"| DB
-    S3 -->|"TCP :5432 (SQL)"| DB
-    S4 -->|"TCP :5432 (SQL)"| DB
-    S5 -->|"TCP :5432 (SQL)"| DB
-    S6 -->|"TCP :5432 (SQL)"| DB
-    S7 -->|"TCP :5432 (SQL)"| DB
-```
+![Diagrama Mermaid 1](img/mermaid_1.png)
 
 **Legenda de Variabilidade:**
 - ● = Feature obrigatória (sempre presente)
@@ -319,42 +257,7 @@ graph TB
 
 **Diagrama de Variabilidade Detalhado:**
 
-```mermaid
-graph TD
-    classDef mandatory fill:#22c55e,stroke:#166534,stroke-width:2px,color:#fff;
-    classDef optional fill:#3b82f6,stroke:#1e40af,stroke-width:2px,color:#fff;
-    classDef vp fill:#f59e0b,stroke:#b45309,stroke-width:2px,color:#fff;
-
-    LPS["LPS: Biblioteca Online"]
-
-    VP1["Ponto de Variação 1:<br/>Seleção de Serviços"]:::vp
-    LPS --> VP1
-    
-    VP1 -->|Variante Obrigatória| CAT["Catálogo Service"]:::mandatory
-    VP1 -->|Variante Opcional| AUTH["Auth Service"]:::optional
-    VP1 -->|Variante Opcional| EMPR["Empréstimo Service"]:::optional
-    VP1 -->|Variante Opcional| MULT["Multa Service"]:::optional
-    VP1 -->|Variante Opcional| NOTI["Notificação Service"]:::optional
-    VP1 -->|Variante Opcional| BUSC["Busca Service"]:::optional
-    VP1 -->|Variante Opcional| AVAL["Avaliação Service"]:::optional
-
-    %% Restrições (Requires)
-    EMPR -.->|Requires| AUTH
-    EMPR -.->|Requires| CAT
-    MULT -.->|Requires| EMPR
-    NOTI -.->|Requires| AUTH
-    BUSC -.->|Requires| CAT
-    AVAL -.->|Requires| AUTH
-    AVAL -.->|Requires| CAT
-
-    VP2["Ponto de Variação 2:<br/>Esquema de Banco de Dados"]:::vp
-    LPS --> VP2
-    VP2 -->|Variante| DB_INIT["init.sql dinâmico<br/>(montado pelas features)"]:::mandatory
-    
-    VP3["Ponto de Variação 3:<br/>Rotas do API Gateway"]:::vp
-    LPS --> VP3
-    VP3 -->|Variante| GATEWAY_ROUTES["Roteamento dinâmico<br/>(resolvido via Jinja2)"]:::mandatory
-```
+![Diagrama Mermaid 2](img/mermaid_2.png)
 
 ### 5.3. Diagrama de Componentes de Software e Diagrama de Variabilidade
 
@@ -363,39 +266,7 @@ graph TD
      - Interfaces providas e requeridas
      - Pontos de variação no nível de componentes -->
 
-```mermaid
-graph LR
-    %% API Gateway
-    GW[«component»<br/>API Gateway]
-    pGW((REST API)) --- GW
-    
-    FE[«component»<br/>Frontend React]
-    FE -.->|HTTP/REST| pGW
-    
-    subgraph "Microsserviços de Negócio"
-        CAT[«component»<br/>catalogo-service]
-        AUTH[«component»<br/>auth-service]
-        EMP[«component»<br/>emprestimo-service]
-        
-        pCAT((REST)) --- CAT
-        pAUTH((REST)) --- AUTH
-        pEMP((REST)) --- EMP
-        
-        GW -.-> pCAT
-        GW -.-> pAUTH
-        GW -.-> pEMP
-        
-        EMP -.->|Verifica Estoque| pCAT
-        EMP -.->|Verifica Usuário| pAUTH
-    end
-    
-    DB[«component»<br/>PostgreSQL]
-    pDB((TCP 5432)) --- DB
-    
-    CAT -.->|SQL| pDB
-    AUTH -.->|SQL| pDB
-    EMP -.->|SQL| pDB
-```
+![Diagrama Mermaid 3](img/mermaid_3.png)
 
 ### 5.4. Tela de Configuração e Construção de Produto
 
@@ -418,77 +289,13 @@ A **Selector UI** é o frontend (desenvolvido em React) da ferramenta de configu
 <!-- TODO: Diagrama detalhado da arquitetura de microsserviços do produto gerado.
      Mostrar comunicação inter-serviços, portas, protocolos. -->
 
-```mermaid
-graph TB
-    classDef frontend fill:#f97316,stroke:#c2410c,color:#fff
-    classDef gateway fill:#0ea5e9,stroke:#0369a1,color:#fff
-    classDef service fill:#6366f1,stroke:#4338ca,color:#fff
-    classDef db fill:#14b8a6,stroke:#0f766e,color:#fff
-
-    CLIENT["👤 Cliente (Browser)"]
-    
-    subgraph "Docker Network (library_network)"
-        NGINX["📱 Frontend<br/>React + Nginx<br/>(Container: frontend)"]:::frontend
-        GW["🌐 API Gateway<br/>FastAPI + httpx<br/>(Container: api-gateway)"]:::gateway
-        
-        subgraph "Microsserviços de Negócio"
-            CAT["📚 catalogo-service<br/>(Container: catalogo-service)"]:::service
-            AUTH["🔐 auth-service<br/>(Container: auth-service)"]:::service
-            EMP["🔄 emprestimo-service<br/>(Container: emprestimo-service)"]:::service
-            MULTA["💰 multa-service<br/>(Container: multa-service)"]:::service
-            NOTIF["🔔 notificacao-service<br/>(Container: notificacao-service)"]:::service
-            BUSCA["🔍 busca-service<br/>(Container: busca-service)"]:::service
-            AVAL["⭐ avaliacao-service<br/>(Container: avaliacao-service)"]:::service
-        end
-        
-        DB["🗄️ Banco de Dados<br/>PostgreSQL 15<br/>(Container: db)"]:::db
-    end
-
-    CLIENT -->|"HTTP :3000"| NGINX
-    CLIENT -->|"HTTP :8080"| GW
-    
-    NGINX -->|"Chamadas API"| GW
-    
-    GW -->|"HTTP/REST :8000<br/>Timeout: 30s<br/>(Error Fallback: 503)"| CAT
-    GW -->|"HTTP/REST :8000"| AUTH
-    GW -->|"HTTP/REST :8000"| EMP
-    GW -->|"HTTP/REST :8000"| MULTA
-    GW -->|"HTTP/REST :8000"| NOTIF
-    GW -->|"HTTP/REST :8000"| BUSCA
-    GW -->|"HTTP/REST :8000"| AVAL
-    
-    CAT -->|"TCP :5432 (psycopg2)"| DB
-    AUTH -->|"TCP :5432"| DB
-    EMP -->|"TCP :5432"| DB
-    MULTA -->|"TCP :5432"| DB
-    NOTIF -->|"TCP :5432"| DB
-    BUSCA -->|"TCP :5432"| DB
-    AVAL -->|"TCP :5432"| DB
-```
+![Diagrama Mermaid 4](img/mermaid_4.png)
 
 ### Microsserviço de Recomendação (Proposta de Evolução)
 
 Como um requisito de expansão do sistema, o **Serviço de Recomendação** pode ser implementado como um microsserviço adicional (`recomendacao-service`). Ele terá a responsabilidade de sugerir novos títulos aos usuários com base em seu histórico comportamental (empréstimos, avaliações e favoritos).
 
-```mermaid
-graph LR
-    classDef new fill:#a855f7,stroke:#7e22ce,color:#fff;
-    classDef existing fill:#64748b,stroke:#475569,color:#fff;
-
-    AUTH["auth-service<br/>(Favoritos)"]:::existing
-    EMP["emprestimo-service<br/>(Histórico)"]:::existing
-    AVAL["avaliacao-service<br/>(Notas)"]:::existing
-    CAT["catalogo-service<br/>(Livros)"]:::existing
-    
-    REC["✨ recomendacao-service<br/>(Motor de Inferência)"]:::new
-
-    AUTH -.->|"Fornece interesses"| REC
-    EMP -.->|"Fornece histórico"| REC
-    AVAL -.->|"Fornece preferências"| REC
-    CAT -.->|"Fornece acervo"| REC
-
-    REC -->|"Gera recomendações personalizadas"| FRONT["Frontend via Gateway"]:::existing
-```
+![Diagrama Mermaid 5](img/mermaid_5.png)
 
 **Fluxo de Dados e Decisão:** O serviço de recomendação atua como um agregador. Ele consumirá os dados dos serviços de domínio (de forma assíncrona via eventos ou requisições diretas com cache), analisará categorias e autores comuns na jornada do usuário e retornará uma lista de livros curados via API Gateway.
 
@@ -1162,30 +969,7 @@ O processo de compilar a LPS em uma aplicação real requer os seguintes pré-re
 
 O diagrama de sequência abaixo demonstra o comportamento interno da plataforma desde o clique no Selector UI até a geração do `.zip` (ou diretório instanciado) contendo a infraestrutura:
 
-```mermaid
-sequenceDiagram
-    actor U as Usuário/Engenheiro
-    participant SUI as Selector UI
-    participant GEN as Generator Service
-    participant FS as File System Local
-
-    U->>SUI: Seleciona features e preenche "Nome do Projeto"
-    SUI->>GEN: POST /generate {projectName: "BiblioX", features: [...]}
-    GEN->>GEN: Resolve conflitos e checa dependências
-    GEN->>FS: Cria diretório output/BiblioX/
-    
-    loop Para cada feature validada
-        GEN->>FS: Renderiza templates Jinja2 (`main.py.tmpl`)
-        GEN->>FS: Gera Dockerfile isolado do microsserviço
-    end
-    
-    GEN->>FS: Injeta endpoints estáticos no API Gateway
-    GEN->>FS: Compila roteamento no Frontend React
-    GEN->>FS: Gera arquivo `docker-compose.yml` consolidado
-    GEN->>FS: Gera `init.sql` combinando tabelas selecionadas
-    GEN-->>SUI: 200 OK (Status e Caminho)
-    SUI-->>U: Modal de Sucesso ("Produto Gerado!")
-```
+![Diagrama Mermaid 6](img/mermaid_6.png)
 
 **Passo a passo:**
 
@@ -1258,25 +1042,7 @@ O produto gerado a partir da LPS oferece uma interface limpa, focada na usabilid
 
 ### 8.1. Mapa de Telas e Integração de Serviços
 
-```mermaid
-graph LR
-    classDef ui fill:#0f172a,stroke:#334155,color:#fff;
-    classDef api fill:#6366f1,stroke:#4338ca,color:#fff;
-
-    T1["🔑 Tela Login"]:::ui -->|auth-service| MS1["🔐 Auth"]
-    
-    T2["📚 Tela Catálogo"]:::ui -->|catalogo-service| MS2["📚 Catálogo"]
-    T2 -->|busca-service| MS3["🔍 Busca"]
-    
-    T3["🔄 Tela Empréstimo"]:::ui -->|emprestimo-service| MS4["🔄 Empréstimo"]
-    
-    T4["⭐ Tela Avaliação"]:::ui -->|avaliacao-service| MS5["⭐ Avaliação"]
-    
-    T5["⚙️ Painel Admin"]:::ui -->|multa-service| MS6["💰 Multa"]
-    T5 -->|auth-service| MS1
-    
-    T6["🔔 Notificações"]:::ui -->|notificacao-service| MS7["🔔 Notificação"]
-```
+![Diagrama Mermaid 7](img/mermaid_7.png)
 *(Figura: Mapa de telas do Frontend e os microsserviços acionados via API Gateway em background).*
 
 ### 8.2. Tela de Catálogo (Página Inicial)
@@ -1294,26 +1060,7 @@ graph LR
 #### Fluxo de Empréstimo
 O diagrama abaixo detalha a comunicação inter-serviços ao se realizar o empréstimo de um livro:
 
-```mermaid
-sequenceDiagram
-    actor U as Usuário
-    participant FE as Frontend React
-    participant GW as API Gateway
-    participant EMP as emprestimo-service
-    participant CAT as catalogo-service
-    participant DB as PostgreSQL
-
-    U->>FE: Clica em "Emprestar"
-    FE->>GW: POST /emprestimo-service/{book_id} (Header: Bearer JWT)
-    GW->>EMP: Proxy da requisição para porta 8000
-    EMP->>EMP: Valida a assinatura do JWT (Secret Compartilhado)
-    EMP->>CAT: Verifica se o livro existe (Chamada REST Interna)
-    CAT-->>EMP: 200 OK (Livro Disponível)
-    EMP->>DB: INSERT INTO emprestimos (user_id, book_id, data_devolucao)
-    EMP-->>GW: 201 Created
-    GW-->>FE: 201 Created
-    FE-->>U: Notificação visual "Empréstimo Realizado"
-```
+![Diagrama Mermaid 8](img/mermaid_8.png)
 
 ### 8.5. Tela de Avaliação e Detalhes do Livro
 - **Funcionalidade:** Permite aos alunos ler e deixar resenhas com nota (1 a 5 estrelas) sobre obras lidas. Mostra o "Top 10 livros mais bem avaliados".
@@ -1333,58 +1080,7 @@ sequenceDiagram
 
 A arquitetura da Biblioteca LPS utiliza um banco de dados relacional (PostgreSQL) centralizado, onde o *schema* real é construído sob demanda unindo os scripts de criação de tabelas de cada microsserviço ativo. A modelagem completa (produto máximo) é a seguinte:
 
-```mermaid
-erDiagram
-    USERS ||--o{ EMPRESTIMOS : "realiza"
-    USERS ||--o{ AVALIACOES : "escreve"
-    USERS ||--o{ MULTAS : "recebe"
-    USERS ||--o{ NOTIFICACOES : "recebe"
-    LIVROS ||--o{ EMPRESTIMOS : "é emprestado"
-    LIVROS ||--o{ AVALIACOES : "recebe"
-    EMPRESTIMOS ||--o{ MULTAS : "gera"
-
-    USERS {
-        int id PK
-        string username
-        string email
-        string password_hash
-        string role
-    }
-
-    LIVROS {
-        int id PK
-        string titulo
-        string autor
-        int ano
-        string categoria
-        string sinopse
-        string capa_url
-    }
-
-    EMPRESTIMOS {
-        int id PK
-        int user_id FK
-        int book_id FK
-        date data_emprestimo
-        date data_devolucao
-    }
-    
-    AVALIACOES {
-        int id PK
-        int user_id FK
-        int book_id FK
-        int nota
-        string comentario
-    }
-    
-    MULTAS {
-        int id PK
-        int emprestimo_id FK
-        int user_id FK
-        float valor
-        boolean paga
-    }
-```
+![Diagrama Mermaid 9](img/mermaid_9.png)
 
 ---
 
@@ -1433,7 +1129,3 @@ lps-biblioteca/
      - Artigos e livros sobre LPS e reuso de software -->
 
 ---
-
-## 11. Vídeo de Demonstração (Somente para Jogos)
-
-> **Nota:** Esta seção não se aplica ao presente projeto (domínio: Biblioteca Online).

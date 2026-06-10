@@ -1,0 +1,25 @@
+// Dependências dos Microsserviços
+digraph {
+	bgcolor=white rankdir=TB
+	catalogo [label="Catálogo
+Service" fillcolor="#22c55e" fontcolor=white shape=box style=filled]
+	auth [label="Auth
+Service" fillcolor="#6366f1" fontcolor=white shape=box style=filled]
+	emprestimo [label="Empréstimo
+Service" fillcolor="#6366f1" fontcolor=white shape=box style=filled]
+	multa [label="Multa
+Service" fillcolor="#6366f1" fontcolor=white shape=box style=filled]
+	notificacao [label="Notificação
+Service" fillcolor="#6366f1" fontcolor=white shape=box style=filled]
+	busca [label="Busca
+Service" fillcolor="#6366f1" fontcolor=white shape=box style=filled]
+	avaliacao [label="Avaliação
+Service" fillcolor="#6366f1" fontcolor=white shape=box style=filled]
+	auth -> emprestimo [label=depende]
+	catalogo -> emprestimo [label=depende]
+	emprestimo -> multa [label=depende]
+	auth -> notificacao [label=depende]
+	catalogo -> busca [label=depende]
+	auth -> avaliacao [label=depende]
+	catalogo -> avaliacao [label=depende]
+}
